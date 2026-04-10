@@ -65,7 +65,7 @@ Pastikan hal-hal berikut sudah tersedia di komputer Anda:
 ### Langkah 1 — Clone / Download Project
 
 ```bash
-git clone https://github.com/username/cloud-mail-flare.git
+git clone https://github.com/kelasdev/cloud-mail-flare.git
 cd cloud-mail-flare
 ```
 
