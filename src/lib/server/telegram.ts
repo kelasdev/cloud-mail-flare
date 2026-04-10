@@ -6,7 +6,16 @@ const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const USER_LIST_PAGE_SIZE = 10;
 const INBOX_PAGE_SIZE = 10;
 const ACCESS_CODE_TTL_MINUTES = 10;
+
+/**
+ * Regex untuk escape karakter special di MarkdownV2 format Telegram.
+ * Per Telegram Bot API Documentation (MarkdownV2):
+ * Karakter yang harus di-escape: _ * [ ] ( ) ~ ` > # + - = | { } . ! \
+ * 
+ * Urutan dalam regex tidak penting, tapi kami gunakan grup capturing untuk replace.
+ */
 const MARKDOWN_V2_SPECIAL = /([_*\[\]()~`>#+\-=|{}.!\\])/g;
+const MARKDOWN_V2_PIPE_PATTERN = /\|/g;
 
 type SortOrder = 'asc' | 'desc';
 
@@ -1316,7 +1325,32 @@ function extractEmailAddress(raw: string): string {
 }
 
 function escapeMarkdownV2(value: string): string {
+  // Escape semua karakter special untuk MarkdownV2
+  // Return nilai yang sudah di-escape dan aman untuk digunakan dalam parse_mode: MarkdownV2
   return value.replace(MARKDOWN_V2_SPECIAL, '\\$1');
+}
+
+/**
+ * Escape karakter pipe '|' dengan konteks-aware handling.
+ * Gunakan function ini ketika '|' digunakan di luar code blocks (backtick).
+ * Contoh: Di dalam text dengan formatting, tabel, atau format lainnya.
+ */
+function escapePipeCharacter(value: string): string {
+  return value.replace(MARKDOWN_V2_PIPE_PATTERN, '\\|');
+}
+
+/**
+ * Validate bahwa string sudah di-escape dengan benar untuk MarkdownV2.
+ * Berguna untuk debugging dan testing.
+ * 
+ * @param value String untuk di-validate
+ * @returns true jika string tidak mengandung special character yang belum di-escape
+ */
+function isMarkdownV2Escaped(value: string): boolean {
+  // Jika tidak ada special character yang belum di-escape, maka sudah valid
+  // Special characters harus di-escape dengan backslash
+  const unescapedPattern = /(?<!\\)([_*\[\]()~`>#+\-=|{}.!\\])/;
+  return !unescapedPattern.test(value);
 }
 
 function escapeCode(value: string): string {
@@ -1342,3 +1376,9 @@ function formatUnixTimestamp(unixSeconds: number | undefined): string {
     return '';
   }
 }
+
+/**
+ * Exports untuk testing dan debugging
+ * Fungsi-fungsi ini biasanya internal tapi di-export untuk verification purposes
+ */
+export { escapeMarkdownV2, escapePipeCharacter, isMarkdownV2Escaped };
