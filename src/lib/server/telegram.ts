@@ -673,9 +673,7 @@ async function handleAccessCommand(context: TelegramCommandContext): Promise<voi
   const text = [
     '*One\\-time Access Code*',
     '',
-    '```text',
-    code,
-    '```',
+    inlineCodeMd(code),
     '',
     `Berlaku ${ACCESS_CODE_TTL_MINUTES} menit dan hanya bisa dipakai sekali\\.`
   ].join('\n');
