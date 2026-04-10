@@ -592,27 +592,23 @@ async function handleInboxCommand(context: TelegramCommandContext, args: string[
   }
 
   const lines = rows.map((row, index) => {
-    const emailId = escapeCode(truncate(String(row.id ?? ''), 96));
-    const sender = escapeCode(truncate(compactWhitespace(String(row.sender ?? '')), 96));
-    const subject = escapeCode(truncate(compactWhitespace(String(row.subject ?? '(No Subject)')), 96));
-    const snippet = escapeCode(truncate(compactWhitespace(String(row.snippet ?? '')), 120));
+    const num = escapeMarkdownV2(String(index + 1));
+    const emailId = truncate(String(row.id ?? ''), 40);
+    const sender = escapeMarkdownV2(truncate(compactWhitespace(String(row.sender ?? '')), 80));
+    const subject = escapeMarkdownV2(truncate(compactWhitespace(String(row.subject ?? '(No Subject)')), 80));
     return [
-      `[${index + 1}]`,
-      `id     : ${emailId}`,
-      `from   : ${sender}`,
-      `subject: ${subject}`,
-      `snippet: ${snippet}`
+      `*${num}\\.* ID: ${inlineCodeMd(emailId)}`,
+      `  From: ${sender}`,
+      `  Subj: ${subject}`
     ].join('\n');
   });
 
   const text = [
-    `*Inbox user* ${inlineCodeMd(username)}`,
+    `*📬 Inbox* ${inlineCodeMd(username)}`,
     '',
-    '```text',
     lines.join('\n\n'),
-    '```',
     '',
-    'Gunakan \\`readmail \\<email\_id\\>\\` untuk baca detail email\\.'
+    `Ketik ${inlineCodeMd('readmail <email_id>')} untuk baca detail\\.`
   ].join('\n');
 
   await sendTelegramMessage(context.config.token, context.chatId, text);
