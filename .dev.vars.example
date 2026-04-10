@@ -1,0 +1,19 @@
+# Berkas ini adalah CONTOH konfigurasi lingkungan lokal.
+# Salin/duplikat file ini lalu ubah namanya menjadi `.dev.vars` (tanpa .example).
+# Lingkungan lokal (pnpm cf:dev) akan membaca file `.dev.vars` sebagai Secrets.
+
+# 1. SETUP_TOKEN (Wajib)
+# Sandi aman yang ditagih oleh aplikasi ketika ada orang pertama kali mencoba masuk, agar mereka diizinkan membuat akun admin pertama.
+SETUP_TOKEN="Raha5ia123!_IniHanyalahContoh"
+
+# 2. TURNSTILE CAPTCHA (Wajib)
+# Default di bawah ini adalah "Dummy Testing Keys" milik Cloudflare yang akan selalu meluluskan CAPTCHA.
+# Di mode Production asli (deploy), biarkan ini kosong di sini dan gunakan perintah wrangler secret.
+TURNSTILE_SITE_KEY="1x00000000000000000000AA"
+TURNSTILE_SECRET_KEY="1x0000000000000000000000000000000AA"
+
+# 3. TELEGRAM INTEGRATION (Opsional)
+# Hanya diperlukan bila bot Telegram dihidupkan untuk fitur notifikasi inbox beruntun.
+TELEGRAM_BOT_TOKEN="0000000000:AAxxxxxx_xxxxxxxxxxxxxxx_xxxxxxxxxxxx"
+TELEGRAM_WEBHOOK_SECRET="SandiAcakDibuatOlehNodeJSMelaluiTipsDocsYangAman"
+TELEGRAM_INTERNAL_SECRET="SandiInternalWorkerKeWorkerSuperRahasia32KarTeks"
