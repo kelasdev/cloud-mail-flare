@@ -1,5 +1,6 @@
 import type { DashboardDto, EmailDetailDto, EmailDto, UserDto } from '$lib/types/dto';
 import type { WorkerSettingsPageDto } from '$lib/server/services/worker-settings.service';
+import PostalMime from 'postal-mime';
 
 interface CreateUserInput {
   email: string;
@@ -277,10 +278,11 @@ export async function upsertInboundEmailInDb(
   const senderMailbox = parseMailboxHeader(senderHeader);
   const replyToMailbox = parseMailboxHeader(replyToHeader);
   const returnPathMailbox = parseMailboxHeader(returnPathHeader);
-  const rawBody = extractRawBodyFromMime(rawMime);
-  const decodedBody = decodeTransferEncoding(rawBody, transferEncodingHeader);
-  const parsedHtml = contentTypeHeader.toLowerCase().includes('text/html') ? decodedBody.slice(0, 50000) : '';
-  const parsedText = parsedHtml ? htmlToPlainText(decodedBody) : decodedBody;
+  const parser = new PostalMime();
+  const parsedMime = await parser.parse(rawMime);
+  
+  const parsedHtml = parsedMime.html?.slice(0, 50000) || '';
+  const parsedText = parsedMime.text || (parsedHtml ? htmlToPlainText(parsedMime.html || '') : '');
   const bodyText = (parsedText || input.bodyText?.trim() || snippet).slice(0, 20000);
   const parsedTextAsHtml = parsedHtml ? '' : textToSimpleHtml(bodyText).slice(0, 50000);
   const parsedCharset = parseHeaderParam(contentTypeHeader, 'charset').slice(0, 120);
