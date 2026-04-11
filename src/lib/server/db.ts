@@ -253,8 +253,9 @@ export async function upsertInboundEmailInDb(
     input.snippet?.trim() ||
     `Inbound email from ${sender} to ${recipient} at ${new Date().toISOString()}`
   ).slice(0, 2000);
+  const rawMimeInput = normalizeRawMimeInput(input.rawMime ?? '');
   const rawMime =
-    input.rawMime?.trim() ||
+    rawMimeInput.trim() ||
     `From: ${sender}\nTo: ${recipient}\nSubject: ${subject}\nDate: ${new Date().toUTCString()}\n\n${snippet}`;
   const contentType = (input.contentType?.trim() || '').slice(0, 255);
   const headersJson = (input.headersJson?.trim() || '').slice(0, 30000);
@@ -278,15 +279,30 @@ export async function upsertInboundEmailInDb(
   const senderMailbox = parseMailboxHeader(senderHeader);
   const replyToMailbox = parseMailboxHeader(replyToHeader);
   const returnPathMailbox = parseMailboxHeader(returnPathHeader);
-  const parser = new PostalMime();
-  const parsedMime = await parser.parse(rawMime);
-  
-  const parsedHtml = parsedMime.html?.slice(0, 50000) || '';
-  const parsedText = parsedMime.text || (parsedHtml ? htmlToPlainText(parsedMime.html || '') : '');
-  const bodyText = (parsedText || input.bodyText?.trim() || snippet).slice(0, 20000);
-  const parsedTextAsHtml = parsedHtml ? '' : textToSimpleHtml(bodyText).slice(0, 50000);
   const parsedCharset = parseHeaderParam(contentTypeHeader, 'charset').slice(0, 120);
   const parsedBoundary = parseHeaderParam(contentTypeHeader, 'boundary').slice(0, 255);
+  const parser = new PostalMime();
+  let parsedMimeHtml = '';
+  let parsedMimeText = '';
+  try {
+    const parsedMime = await parser.parse(rawMime);
+    parsedMimeHtml = parsedMime.html || '';
+    parsedMimeText = parsedMime.text || (parsedMimeHtml ? htmlToPlainText(parsedMimeHtml) : '');
+  } catch {
+    parsedMimeHtml = '';
+    parsedMimeText = '';
+  }
+  const fallbackMime = extractBestBodyFromRawMime(rawMime, contentTypeHeader, transferEncodingHeader, parsedBoundary);
+  const preferFallback = looksLikeRawMimeLeak(parsedMimeText, parsedBoundary);
+  const resolvedHtml = preferFallback ? fallbackMime.html || parsedMimeHtml : parsedMimeHtml || fallbackMime.html;
+  const resolvedText = preferFallback
+    ? fallbackMime.text || (resolvedHtml ? htmlToPlainText(resolvedHtml) : '')
+    : parsedMimeText || fallbackMime.text || (resolvedHtml ? htmlToPlainText(resolvedHtml) : '');
+
+  const parsedHtml = resolvedHtml.slice(0, 50000);
+  const parsedText = resolvedText;
+  const bodyText = (parsedText || input.bodyText?.trim() || snippet).slice(0, 20000);
+  const parsedTextAsHtml = parsedHtml ? '' : textToSimpleHtml(bodyText).slice(0, 50000);
   const rawSize = rawMime.length;
   const receivedAt = input.receivedAt?.trim() || new Date().toISOString();
 
@@ -467,6 +483,209 @@ function parseMailboxHeader(value: string): { name: string; email: string } {
     return { name: '', email: plain };
   }
   return { name: trimmed, email: '' };
+}
+
+function normalizeRawMimeInput(rawMime: string): string {
+  const value = String(rawMime ?? '');
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed === 'string' && parsed.trim()) {
+        return parsed;
+      }
+    } catch {
+      // ignore malformed JSON-string payload and use the original value
+    }
+  }
+
+  if (!value.includes('\n') && (trimmed.includes('\\r\\n') || trimmed.includes('\\n'))) {
+    return trimmed.replace(/\\r\\n/g, '\r\n').replace(/\\n/g, '\n');
+  }
+
+  return value;
+}
+
+function looksLikeRawMimeLeak(value: string, boundary: string): boolean {
+  const sample = String(value ?? '').slice(0, 2500);
+  if (!sample) {
+    return false;
+  }
+
+  if (/^\s*--[-_=a-zA-Z0-9]{6,}/m.test(sample) && /content-type\s*:/i.test(sample)) {
+    return true;
+  }
+
+  if (/content-transfer-encoding\s*:/i.test(sample) && /mime-version\s*:/i.test(sample)) {
+    return true;
+  }
+
+  if (boundary) {
+    const normalizedBoundary = boundary.replace(/^"+|"+$/g, '');
+    if (normalizedBoundary && (sample.includes(normalizedBoundary) || sample.includes(`--${normalizedBoundary}`))) {
+      if (/content-type\s*:/i.test(sample)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function extractBestBodyFromRawMime(
+  rawMime: string,
+  contentTypeHeader: string,
+  transferEncodingHeader: string,
+  boundary: string
+): { text: string; html: string } {
+  const rawBody = extractRawBodyFromMime(rawMime);
+  if (!rawBody) {
+    return { text: '', html: '' };
+  }
+
+  const normalizedContentType = contentTypeHeader.toLowerCase();
+  const boundaryValue = boundary || parseHeaderParam(contentTypeHeader, 'boundary');
+  if (normalizedContentType.includes('multipart/') && boundaryValue) {
+    const parts = splitMultipartBody(rawBody, boundaryValue);
+    let plainText = '';
+    let htmlBody = '';
+
+    for (const part of parts) {
+      const parsedPart = parseMimePart(part);
+      if (!parsedPart) {
+        continue;
+      }
+
+      const partContentType = pickHeader(parsedPart.headers, 'content-type').toLowerCase();
+      const partEncoding = pickHeader(parsedPart.headers, 'content-transfer-encoding') || transferEncodingHeader;
+      const decodedBody = decodeTransferEncoding(parsedPart.body, partEncoding).trim();
+      if (!decodedBody) {
+        continue;
+      }
+
+      if (!plainText && partContentType.includes('text/plain')) {
+        plainText = decodedBody;
+      }
+      if (!htmlBody && partContentType.includes('text/html')) {
+        htmlBody = decodedBody;
+      }
+      if (plainText && htmlBody) {
+        break;
+      }
+    }
+
+    if (plainText || htmlBody) {
+      return {
+        text: plainText || htmlToPlainText(htmlBody),
+        html: htmlBody
+      };
+    }
+  }
+
+  const decodedBody = decodeTransferEncoding(rawBody, transferEncodingHeader).trim();
+  if (!decodedBody) {
+    return { text: '', html: '' };
+  }
+
+  if (normalizedContentType.includes('text/html')) {
+    return {
+      text: htmlToPlainText(decodedBody),
+      html: decodedBody
+    };
+  }
+
+  return {
+    text: decodedBody,
+    html: ''
+  };
+}
+
+function splitMultipartBody(rawBody: string, boundary: string): string[] {
+  const normalizedBoundary = String(boundary ?? '').replace(/^"+|"+$/g, '').trim();
+  if (!normalizedBoundary) {
+    return [];
+  }
+
+  const delimiter = `--${normalizedBoundary}`;
+  const closingDelimiter = `${delimiter}--`;
+  const lines = rawBody.split(/\r?\n/);
+  const parts: string[] = [];
+  let collecting = false;
+  let currentPart: string[] = [];
+
+  for (const lineRaw of lines) {
+    const line = lineRaw.trimEnd();
+    if (line === delimiter) {
+      if (collecting && currentPart.length > 0) {
+        parts.push(currentPart.join('\n'));
+      }
+      collecting = true;
+      currentPart = [];
+      continue;
+    }
+    if (line === closingDelimiter) {
+      if (collecting && currentPart.length > 0) {
+        parts.push(currentPart.join('\n'));
+      }
+      break;
+    }
+    if (collecting) {
+      currentPart.push(lineRaw);
+    }
+  }
+
+  return parts;
+}
+
+function parseMimePart(part: string): { headers: Record<string, string>; body: string } | null {
+  if (!part) {
+    return null;
+  }
+  const parts = part.split(/\r?\n\r?\n/);
+  if (parts.length < 2) {
+    return null;
+  }
+  const headerBlock = parts.shift() ?? '';
+  const body = parts.join('\n\n');
+  return {
+    headers: parseHeaderBlock(headerBlock),
+    body
+  };
+}
+
+function parseHeaderBlock(headerBlock: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  let currentKey = '';
+
+  for (const line of headerBlock.split(/\r?\n/)) {
+    if (!line) {
+      continue;
+    }
+
+    if ((line.startsWith(' ') || line.startsWith('\t')) && currentKey) {
+      headers[currentKey] = `${headers[currentKey]} ${line.trim()}`.trim();
+      continue;
+    }
+
+    const separatorIndex = line.indexOf(':');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim().toLowerCase();
+    const value = line.slice(separatorIndex + 1).trim();
+    if (!key) {
+      continue;
+    }
+    currentKey = key;
+    headers[key] = headers[key] ? `${headers[key]}\n${value}` : value;
+  }
+
+  return headers;
 }
 
 function extractRawBodyFromMime(rawMime: string): string {
