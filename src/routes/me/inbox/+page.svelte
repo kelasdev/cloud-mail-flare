@@ -15,7 +15,7 @@
     : data.emails;
   $: unreadCount = data.emails.filter((email) => !email.isRead).length;
   $: starredCount = data.emails.filter((email) => email.isStarred).length;
-  const archivedCount = 0;
+  $: archivedCount = data.archivedCount ?? 0;
 </script>
 
 <section class="inbox-only-main">

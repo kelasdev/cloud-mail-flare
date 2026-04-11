@@ -3,12 +3,11 @@ import type { RequestHandler } from './$types';
 import { applyEmailQuickActionInDb, getEmailByIdFromDb, type EmailQuickAction } from '$lib/server/db';
 
 export const GET: RequestHandler = async ({ locals, platform, params }) => {
-  const userId = locals.sessionUserId;
-  if (!userId) {
+  if (!locals.authenticated) {
     return json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const email = await getEmailByIdFromDb(platform?.env?.DB, userId, params.emailId);
+  const email = await getEmailByIdFromDb(platform?.env?.DB, params.userId, params.emailId);
   if (!email) {
     return json({ error: 'Email not found' }, { status: 404 });
   }
@@ -17,9 +16,13 @@ export const GET: RequestHandler = async ({ locals, platform, params }) => {
 };
 
 export const PATCH: RequestHandler = async ({ locals, platform, params, request }) => {
-  const userId = locals.sessionUserId;
-  if (!userId) {
+  if (!locals.authenticated) {
     return json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const isOwner = locals.sessionRole === 'owner';
+  if (!isOwner && locals.sessionUserId !== params.userId) {
+    return json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const contentType = request.headers.get('content-type') ?? '';
@@ -34,7 +37,8 @@ export const PATCH: RequestHandler = async ({ locals, platform, params, request 
   }
 
   try {
-    const result = await applyEmailQuickActionInDb(platform?.env?.DB, userId, params.emailId, action, `web:${userId}`);
+    const actor = locals.sessionUserId ? `web:${locals.sessionUserId}` : 'web:unknown';
+    const result = await applyEmailQuickActionInDb(platform?.env?.DB, params.userId, params.emailId, action, actor);
     if (!result.updated && result.reason === 'not_found') {
       return json({ error: 'Email not found' }, { status: 404 });
     }

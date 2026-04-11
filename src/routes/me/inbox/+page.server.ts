@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { error, redirect } from '@sveltejs/kit';
-import { getUserById, getUserInbox } from '$lib/server/services/users.service';
+import { getUserArchivedEmailCount, getUserById, getUserInbox } from '$lib/server/services/users.service';
 
 export const load: PageServerLoad = async (event) => {
   if (event.locals.sessionRole === 'owner') {
@@ -12,7 +12,11 @@ export const load: PageServerLoad = async (event) => {
     throw redirect(303, '/auth/login');
   }
 
-  const [emails, currentUser] = await Promise.all([getUserInbox(event, userId), getUserById(event, userId)]);
+  const [emails, currentUser, archivedCount] = await Promise.all([
+    getUserInbox(event, userId),
+    getUserById(event, userId),
+    getUserArchivedEmailCount(event, userId)
+  ]);
   if (!currentUser) {
     throw error(404, 'User not found');
   }
@@ -20,6 +24,7 @@ export const load: PageServerLoad = async (event) => {
   return {
     userId,
     currentUser,
-    emails
+    emails,
+    archivedCount
   };
 };

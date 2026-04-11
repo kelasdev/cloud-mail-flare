@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import MailboxTopbar from '$lib/components/organisms/MailboxTopbar.svelte';
   import CardSurface from '$lib/components/atoms/CardSurface.svelte';
   import Badge from '$lib/components/atoms/Badge.svelte';
@@ -9,8 +10,72 @@
 
   export let data: PageData;
 
+  type EmailQuickAction = 'star' | 'archive' | 'delete';
+
+  let email = data.email;
+  let activeEmailId = data.email.id;
+  let isStarred = data.email.isStarred;
+  let actionPending = false;
+  let actionMessage = '';
+  let actionError = '';
+
   $: email = data.email;
+
+  $: if (data.email.id !== activeEmailId) {
+    activeEmailId = data.email.id;
+    isStarred = data.email.isStarred;
+    actionPending = false;
+    actionMessage = '';
+    actionError = '';
+  }
+
   $: receivedLabel = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : '-';
+
+  async function runQuickAction(action: EmailQuickAction) {
+    if (actionPending) {
+      return;
+    }
+
+    if (action === 'delete' && !confirm('Soft delete email ini?')) {
+      return;
+    }
+
+    actionMessage = '';
+    actionError = '';
+    actionPending = true;
+
+    try {
+      const response = await fetch(`/api/me/emails/${encodeURIComponent(email.id)}`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ action })
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        email?: { isStarred?: boolean };
+      };
+
+      if (!response.ok) {
+        actionError = payload.error ?? 'Failed to update email status.';
+        return;
+      }
+
+      if (action === 'star') {
+        isStarred = typeof payload.email?.isStarred === 'boolean' ? payload.email.isStarred : !isStarred;
+        actionMessage = isStarred ? 'Email starred.' : 'Star removed.';
+        return;
+      }
+
+      await goto('/me/inbox');
+    } catch {
+      actionError = 'Unable to reach server. Please try again.';
+    } finally {
+      actionPending = false;
+    }
+  }
 </script>
 
 <section class="inbox-only-main">
@@ -36,21 +101,47 @@
         <div class="top-actions">
           <div class="badges">
             <Badge tone={email.isRead ? 'primary' : 'warning'}>{email.isRead ? 'Read' : 'Unread'}</Badge>
-            {#if email.isStarred}
+            {#if isStarred}
               <Badge tone="success">Starred</Badge>
             {/if}
           </div>
           <div class="icon-actions">
-            <button class="icon-action" type="button" aria-label="Toggle star" title="Star">
-              <Icon name={email.isStarred ? 'star' : 'star_border'} size={18} />
+            <button
+              class="icon-action"
+              type="button"
+              aria-label={isStarred ? 'Remove star' : 'Add star'}
+              title={isStarred ? 'Remove star' : 'Add star'}
+              on:click={() => runQuickAction('star')}
+              disabled={actionPending}
+            >
+              <Icon name={isStarred ? 'star' : 'star_border'} size={18} />
             </button>
-            <button class="icon-action" type="button" aria-label="Archive email" title="Archive">
+            <button
+              class="icon-action"
+              type="button"
+              aria-label="Archive email"
+              title="Archive"
+              on:click={() => runQuickAction('archive')}
+              disabled={actionPending}
+            >
               <Icon name="archive" size={18} />
             </button>
-            <button class="icon-action danger" type="button" aria-label="Delete email" title="Delete">
+            <button
+              class="icon-action danger"
+              type="button"
+              aria-label="Delete email"
+              title="Delete"
+              on:click={() => runQuickAction('delete')}
+              disabled={actionPending}
+            >
               <Icon name="delete" size={18} />
             </button>
           </div>
+          {#if actionError}
+            <p class="action-feedback error">{actionError}</p>
+          {:else if actionMessage}
+            <p class="action-feedback">{actionMessage}</p>
+          {/if}
         </div>
       </div>
 
@@ -137,6 +228,11 @@
     transition: all 120ms ease;
   }
 
+  .icon-action:disabled {
+    opacity: 0.45;
+    cursor: wait;
+  }
+
   .icon-action:hover {
     background: var(--color-surface-card);
     color: var(--color-primary-500);
@@ -144,6 +240,16 @@
   }
 
   .icon-action.danger:hover {
+    color: var(--color-danger);
+  }
+
+  .action-feedback {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+  }
+
+  .action-feedback.error {
     color: var(--color-danger);
   }
 

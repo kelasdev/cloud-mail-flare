@@ -583,6 +583,7 @@ async function handleInboxCommand(context: TelegramCommandContext, args: string[
       FROM emails
       WHERE user_id = ?
         AND deleted_at IS NULL
+        AND is_archived = 0
       ORDER BY received_at DESC, id DESC
       LIMIT ${INBOX_PAGE_SIZE}
     `
