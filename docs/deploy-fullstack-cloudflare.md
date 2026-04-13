@@ -39,7 +39,7 @@ Siapkan nilai berikut sebelum deploy:
 - `TURNSTILE_SECRET_KEY`
 - `TELEGRAM_BOT_TOKEN` (opsional, jika pakai Telegram)
 - `TELEGRAM_WEBHOOK_SECRET` (opsional, direkomendasikan)
-- `TELEGRAM_INTERNAL_SECRET` (wajib jika pakai Email Routing -> Telegram notify)
+- `TELEGRAM_INTERNAL_SECRET` (opsional, diperlukan jika endpoint `/api/telegram/notify-email` dipanggil dari luar session dashboard)
 
 ## 4) Install dan Login Wrangler
 
@@ -118,6 +118,8 @@ pnpm exec wrangler secret put TELEGRAM_BOT_TOKEN
 pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET
 pnpm exec wrangler secret put TELEGRAM_INTERNAL_SECRET
 ```
+
+> `TELEGRAM_INTERNAL_SECRET` tidak wajib untuk alur inbound email internal Worker ke DB. Secret ini dipakai untuk mengamankan akses endpoint `/api/telegram/notify-email` dari caller non-login (misalnya service eksternal).
 
 > **Catatan:** `TELEGRAM_ALLOWED_IDS` **tidak perlu** di-set sebagai env secret production. Whitelist Allowed IDs dikelola dari UI halaman `/worker/settings` setelah login (disimpan di DB). Env `TELEGRAM_ALLOWED_IDS` hanya berfungsi sebagai fallback awal jika key `allowed_ids` belum pernah disimpan ke DB.
 
@@ -280,7 +282,7 @@ Email inbound drop terus:
 - cek `MAILFLARE_USER_DOMAIN` / `user_email_domain` di worker settings sudah sesuai domain email aktif
 
 Telegram notify tidak terkirim:
-- cek `TELEGRAM_INTERNAL_SECRET` sudah di-set (wajib diisi agar email handler bisa memanggil endpoint notify)
+- jika memanggil `/api/telegram/notify-email` dari service eksternal/non-login, cek `TELEGRAM_INTERNAL_SECRET` sudah di-set dan header `x-mailflare-telegram-secret` sesuai
 - cek `MAILFLARE_NOTIFY_URL` sudah benar dan bisa diakses dari Worker
 - cek setting chat target (`Allowed IDs`, `Default Chat ID`) di `/worker/settings`
 - cek `forward_inbound` di worker settings bernilai `true`/`1`

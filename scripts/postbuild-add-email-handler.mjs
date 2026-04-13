@@ -251,10 +251,6 @@ async function __mailflareHandleInboundEmail(message, env, ctx, worker) {
   }
 
   const internalSecret = String((env && env.TELEGRAM_INTERNAL_SECRET) || '').trim();
-  if (!internalSecret) {
-    console.warn('[mailflare-email] TELEGRAM_INTERNAL_SECRET is not configured. Skip inbound forwarding.');
-    return;
-  }
 
   const sender = String((message && message.from) || '').trim();
   const recipientOriginal = String((message && message.to) || '').trim();
@@ -285,7 +281,8 @@ async function __mailflareHandleInboundEmail(message, env, ctx, worker) {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-mailflare-telegram-secret': internalSecret
+      'x-mailflare-internal-request': '1',
+      ...(internalSecret ? { 'x-mailflare-telegram-secret': internalSecret } : {})
     },
     body: JSON.stringify(payload)
   });
@@ -312,6 +309,10 @@ async function __mailflareHandleInboundEmail(message, env, ctx, worker) {
   const notifyUrl = __mailflareBuildNotifyUrl(env && env.MAILFLARE_NOTIFY_URL);
   if (!notifyUrl) {
     console.warn('[mailflare-email] MAILFLARE_NOTIFY_URL is not configured. Skip HTTP fallback notify.');
+    return;
+  }
+  if (!internalSecret) {
+    console.warn('[mailflare-email] TELEGRAM_INTERNAL_SECRET is not configured. Skip HTTP fallback notify.');
     return;
   }
 

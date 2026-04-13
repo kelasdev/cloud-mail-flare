@@ -101,6 +101,7 @@ Halaman worker settings sekarang sudah terhubung dengan runtime Telegram untuk:
 Gunakan `wrangler secret` untuk nilai rahasia (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_INTERNAL_SECRET`).
 `TELEGRAM_ALLOWED_IDS`, `TELEGRAM_DEFAULT_CHAT_ID`, dan `TELEGRAM_TEST_CHAT_ID` opsional sebagai fallback awal.
 `MAILFLARE_NOTIFY_URL` wajib untuk forward event Email Routing ke endpoint `/api/telegram/notify-email`.
+`TELEGRAM_INTERNAL_SECRET` dipakai untuk mengamankan akses endpoint `/api/telegram/notify-email` dari caller non-login eksternal.
 
 ### Key `worker_settings` yang dipakai
 
@@ -577,7 +578,7 @@ Periksa:
 ## 13) Catatan Operasional
 
 - Endpoint `notify-email` adalah entry point notifikasi inbound.
-- Untuk skenario Cloudflare Email Routing, handler `email()` di Worker akan mem-forward payload ke endpoint tersebut secara otomatis (butuh `MAILFLARE_NOTIFY_URL` + `TELEGRAM_INTERNAL_SECRET`).
+- Untuk skenario Cloudflare Email Routing, handler `email()` di Worker akan mem-forward payload ke endpoint tersebut secara otomatis. Persist email ke DB tetap berjalan walau `TELEGRAM_INTERNAL_SECRET` kosong.
 - Handler `email()` memvalidasi recipient ke DB terlebih dulu; recipient tidak dikenal akan ditolak.
-- Jika ingin memaksa keamanan lebih ketat, isi `webhook_secret` dan `TELEGRAM_INTERNAL_SECRET` wajib di environment production.
+- Jika endpoint `/api/telegram/notify-email` akan dipanggil dari service eksternal/non-login, isi `TELEGRAM_INTERNAL_SECRET` dan kirim header `x-mailflare-telegram-secret`.
 - Gunakan HTTPS public URL untuk webhook Telegram production.

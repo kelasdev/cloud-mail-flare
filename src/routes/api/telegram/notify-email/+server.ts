@@ -24,6 +24,20 @@ function hasSecretAccess(expectedSecret: string, providedSecret: string): boolea
   return expectedSecret === providedSecret;
 }
 
+function isInternalWorkerNotifyRequest(request: Request): boolean {
+  const marker = (request.headers.get('x-mailflare-internal-request') ?? '').trim();
+  if (marker !== '1') {
+    return false;
+  }
+
+  try {
+    const url = new URL(request.url);
+    return url.hostname === 'mailflare.internal';
+  } catch {
+    return false;
+  }
+}
+
 export const POST: RequestHandler = async ({ request, platform, locals }) => {
   const db = platform?.env?.DB;
   if (!db) {
@@ -33,7 +47,8 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
   if (!locals.authenticated) {
     const expected = (platform?.env?.TELEGRAM_INTERNAL_SECRET ?? '').trim();
     const provided = (request.headers.get('x-mailflare-telegram-secret') ?? '').trim();
-    if (!hasSecretAccess(expected, provided)) {
+    const allowInternalBypass = isInternalWorkerNotifyRequest(request);
+    if (!allowInternalBypass && !hasSecretAccess(expected, provided)) {
       return json({ error: 'Unauthorized' }, { status: 401 });
     }
   }
