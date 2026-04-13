@@ -1,47 +1,63 @@
-# Deploy Production MailFlare (Cloudflare Worker + D1 + Email Routing)
+# Full Deployment Guide (Cloudflare Worker + D1 + Email Routing)
 
-Panduan ini adalah acuan deploy production untuk project ini.
-Ikuti urutan dari atas ke bawah agar tidak ada konfigurasi yang terlewat.
+Dokumen ini adalah panduan deploy production end-to-end untuk Cloud Mail Flare.
+Ikuti urutan langkah dari atas ke bawah agar tidak ada konfigurasi yang terlewat.
 
-## 1) Arsitektur dan Domain
+## 1) Scope dan Arsitektur
 
-Project berjalan sebagai satu Worker (`mailflare-web`) yang menangani:
+Aplikasi berjalan dalam 1 Cloudflare Worker untuk:
+
 - UI SvelteKit
 - API (`/api/*`)
-- Integrasi D1
-- Event Email Routing (`email()` handler)
+- D1 database access
+- Email Routing handler (`email()`)
 
-Pemisahan domain pada production:
-- Domain UI/API: `https://<app-domain>`
-- Domain email user: `username@<mail-domain>`
+Pemisahan domain di production:
+
+- App/UI/API domain: `https://<app-domain>`
+- Mail domain user: `username@<mail-domain>`
+
+Contoh:
+
+- `APP_DOMAIN=mail.example.com`
+- `MAIL_DOMAIN=example.com`
 
 Catatan:
-- `<app-domain>` adalah URL aplikasi, bukan format alamat email user.
-- Format email user ditentukan oleh `MAILFLARE_USER_DOMAIN` / `worker_settings.user_email_domain`.
+
+- `<app-domain>` adalah hostname URL app (bukan alamat email).
+- Format email user mengikuti `MAILFLARE_USER_DOMAIN` atau `worker_settings.user_email_domain`.
 
 ## 2) Prasyarat
 
 - Node.js 20+
 - `pnpm` terpasang
-- Akun Cloudflare dengan akses Workers, D1, dan Email Routing
-- Domain sudah ada di akun Cloudflare
+- Akun Cloudflare dengan akses Workers, D1, Email Routing
+- Domain sudah ada di Cloudflare zone
 
-## 3) Nilai yang Harus Disiapkan
+## 3) Nilai yang Wajib Disiapkan
 
-Siapkan nilai berikut sebelum deploy:
+Siapkan dulu nilai ini sebelum deploy:
 
-- `CLOUDFLARE_ACCOUNT_ID`
-- `D1_DATABASE_ID` (jika sudah ada; jika belum, akan dibuat)
 - `APP_DOMAIN` (contoh: `mail.example.com`)
 - `MAIL_DOMAIN` (contoh: `example.com`)
+- `WORKER_NAME` (contoh: `mailflare-web`)
+- `D1_DB_NAME` (contoh: `mailflarecloud-db`)
 - `SETUP_TOKEN` (untuk bootstrap admin pertama)
 - `TURNSTILE_SITE_KEY`
 - `TURNSTILE_SECRET_KEY`
-- `TELEGRAM_BOT_TOKEN` (opsional, jika pakai Telegram)
-- `TELEGRAM_WEBHOOK_SECRET` (opsional, direkomendasikan)
-- `TELEGRAM_INTERNAL_SECRET` (opsional, diperlukan jika endpoint `/api/telegram/notify-email` dipanggil dari luar session dashboard)
 
-## 4) Install dan Login Wrangler
+Opsional (jika pakai Telegram):
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_WEBHOOK_SECRET`
+- `TELEGRAM_INTERNAL_SECRET`
+
+Catatan Telegram:
+
+- `TELEGRAM_INTERNAL_SECRET` hanya dibutuhkan untuk caller eksternal/non-login ke `/api/telegram/notify-email`.
+- Inbound email internal Worker ke DB tetap bisa jalan tanpa secret ini.
+
+## 4) Install Dependency dan Login Wrangler
 
 ```bash
 pnpm install
@@ -49,12 +65,16 @@ pnpm exec wrangler login
 pnpm exec wrangler whoami
 ```
 
+Jika `whoami` gagal, ulangi `wrangler login`.
+
 ## 5) Konfigurasi `wrangler.toml`
 
-Gunakan contoh ini sebagai baseline:
+Pastikan `wrangler.toml` sudah sesuai.
+
+Contoh baseline:
 
 ```toml
-name = "<nama-worker-anda>"
+name = "<worker-name>"
 main = ".svelte-kit/cloudflare/_worker.js"
 compatibility_date = "2026-04-07"
 compatibility_flags = ["nodejs_compat"]
@@ -70,35 +90,34 @@ directory = ".svelte-kit/cloudflare"
 binding = "ASSETS"
 
 [vars]
-MAILFLARE_USER_DOMAIN = "<your-root-email-domain>"
+MAILFLARE_USER_DOMAIN = "<mail-domain>"
 MAILFLARE_NOTIFY_URL = "https://<app-domain>"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "<nama-database-d1-anda>"
-database_id = "replace-with-your-d1-database-id"
+database_name = "<d1-db-name>"
+database_id = "<d1-database-id>"
 ```
 
-Penjelasan field penting:
-- `name`: nama Worker di Cloudflare — harus sama persis dengan nama yang dibuat di dashboard/wrangler.
-- `[[routes]]`: target custom domain untuk UI/API.
-- `MAILFLARE_USER_DOMAIN`: domain email user (`username@domain`).
-- `MAILFLARE_NOTIFY_URL`: base URL aplikasi untuk callback internal notify email.
-- `binding = "DB"`: wajib tetap `DB` karena dipakai backend.
-- `database_name`: harus sama persis dengan nama D1 yang dibuat di Langkah 6.
+Validasi cepat:
 
-## 6) Buat D1 (Jika Belum Ada) dan Apply Schema
+- `name` sama dengan nama Worker yang akan dideploy.
+- `[[routes]].pattern` adalah hostname app production.
+- `binding` D1 harus `DB`.
+- `MAILFLARE_NOTIFY_URL` harus URL app production aktif.
+
+## 6) Buat D1 dan Apply Schema
 
 Jika DB belum ada:
 
 ```bash
-pnpm exec wrangler d1 create mailflarecloud-db
+pnpm exec wrangler d1 create <d1-db-name>
 ```
 
-Lalu update `database_id` di `wrangler.toml`, kemudian apply schema:
+Setelah dapat `database_id`, isi ke `wrangler.toml`, lalu apply schema remote:
 
 ```bash
-pnpm exec wrangler d1 execute mailflarecloud-db --remote --file ./schema.sql
+pnpm exec wrangler d1 execute <d1-db-name> --remote --file ./schema.sql
 ```
 
 ## 7) Set Secret Production
@@ -117,76 +136,111 @@ Jika pakai Telegram:
 pnpm exec wrangler secret put TELEGRAM_BOT_TOKEN
 pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET
 pnpm exec wrangler secret put TELEGRAM_INTERNAL_SECRET
+pnpm exec wrangler secret put TELEGRAM_ALLOWED_IDS
 ```
 
-> `TELEGRAM_INTERNAL_SECRET` tidak wajib untuk alur inbound email internal Worker ke DB. Secret ini dipakai untuk mengamankan akses endpoint `/api/telegram/notify-email` dari caller non-login (misalnya service eksternal).
+Catatan penting:
 
-> **Catatan:** `TELEGRAM_ALLOWED_IDS` **tidak perlu** di-set sebagai env secret production. Whitelist Allowed IDs dikelola dari UI halaman `/worker/settings` setelah login (disimpan di DB). Env `TELEGRAM_ALLOWED_IDS` hanya berfungsi sebagai fallback awal jika key `allowed_ids` belum pernah disimpan ke DB.
+- `TELEGRAM_BOT_TOKEN` adalah syarat utama agar bot bisa kirim pesan.
+- `TELEGRAM_WEBHOOK_SECRET` sangat disarankan untuk verifikasi request dari Telegram.
+- `TELEGRAM_INTERNAL_SECRET` hanya wajib jika endpoint `/api/telegram/notify-email` dipanggil oleh caller eksternal/non-login.
+- `TELEGRAM_ALLOWED_IDS` tidak wajib sebagai secret production. Kelola whitelist dari UI `/worker/settings`.
+- `TELEGRAM_DEFAULT_CHAT_ID` dan `TELEGRAM_TEST_CHAT_ID` opsional sebagai fallback env; umumnya dikelola lewat UI.
 
-Generate secret acak kuat (opsional):
+Prioritas konfigurasi Telegram saat runtime:
+
+- `allowed_ids`: jika key `allowed_ids` sudah pernah tersimpan di DB, nilai DB jadi authoritative (termasuk saat kosong). Jika belum pernah ada di DB, baru fallback ke env `TELEGRAM_ALLOWED_IDS`.
+- `default_chat_id` dan `test_chat_id`: pakai nilai DB jika terisi; jika kosong baru fallback ke env `TELEGRAM_DEFAULT_CHAT_ID` dan `TELEGRAM_TEST_CHAT_ID`.
+- `forward_inbound`: default `false` jika belum pernah disimpan ke DB, jadi harus diaktifkan manual di `/worker/settings` bila ingin forward email masuk ke Telegram.
+
+Opsional fallback env Telegram (jika ingin dipasang di Worker env):
+
+```bash
+pnpm exec wrangler secret put TELEGRAM_DEFAULT_CHAT_ID
+pnpm exec wrangler secret put TELEGRAM_TEST_CHAT_ID
+```
+
+Generate secret random (opsional):
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-## 8) Validasi Sebelum Deploy
+## 8) Pre-Deploy Validation
 
 ```bash
 pnpm check
+pnpm build
 ```
 
-Jika gagal, perbaiki error dulu sebelum deploy.
+Jika gagal, perbaiki dulu sebelum deploy.
 
-## 9) Deploy Worker
+## 9) Deploy ke Cloudflare
 
 ```bash
 pnpm run deploy
 ```
 
-Expected output penting:
-- Tidak ada error build
-- Worker ter-upload sukses
-- Trigger menampilkan custom domain (contoh: `<app-domain> (custom domain)`)
+Expected result:
 
-> **Catatan:** Proses `pnpm run deploy` menjalankan 3 tahap: `pnpm build` (SvelteKit) → `postbuild-add-email-handler.mjs` (inject handler `email()` ke worker output) → `wrangler deploy`. Handler `email()` inilah yang menerima email dari Cloudflare Email Routing.
+- Build sukses
+- Worker upload sukses
+- Trigger menampilkan custom domain
+
+Catatan proses deploy:
+
+- `pnpm run deploy` menjalankan build SvelteKit
+- Script `postbuild-add-email-handler.mjs` inject handler `email()`
+- Wrangler deploy ke Cloudflare
 
 Jika muncul `No deploy targets`:
-- pastikan `[[routes]]` sudah benar dan domain sudah aktif di Cloudflare
-- `workers_dev` harus tetap `false` (jangan diubah ke `true` di production, karena itu untuk subdomain `*.workers.dev` bukan custom domain).
+
+- Cek `[[routes]]` sudah benar
+- Pastikan domain aktif di zone yang sama
+- `workers_dev` tetap `false` untuk custom domain production
 
 ## 10) Bootstrap Admin Pertama
 
-Saat DB masih kosong:
-- buka `https://<app-domain>/auth/login`
-- Selesaikan CAPTCHA Cloudflare Turnstile yang tampil di form login
-- isi **Email** dan **Password** yang diinginkan untuk akun admin
-- isi field **Setup Token (First Login Only)** dengan nilai `SETUP_TOKEN` yang sudah di-set sebagai secret
+Jika tabel `users` masih kosong:
 
-Jika token tidak cocok, bootstrap akan ditolak dengan error `Invalid setup token`.
+1. Buka `https://<app-domain>/auth/login`
+2. Selesaikan Turnstile CAPTCHA
+3. Isi email + password admin
+4. Isi field `Setup Token (First Login Only)` dengan nilai `SETUP_TOKEN`
 
-> Setup Token hanya diperlukan sekali saat tabel `users` masih kosong. Login berikutnya tidak memerlukan field ini.
+Jika token salah, akan muncul error `Invalid setup token`.
 
-## 11) Konfigurasi Worker Settings (UI)
+## 11) Konfigurasi Worker Settings (Admin UI)
 
-Setelah login sebagai admin:
-- buka `/worker/settings`
-- isi bagian Telegram:
-  - **Bot Token** (jika belum di-set via env)
-  - **Webhook Secret** (opsional)
-  - **Allowed IDs** — Telegram User ID yang boleh kirim command (pisah koma, contoh: `123456789,987654321`)
-  - **Default Chat ID** / **Test Chat ID**
-  - **Target Mode** — pilih `All Allowed IDs`, `Default`, atau `Test`
-  - **Forward inbound** — aktifkan agar email masuk diteruskan ke Telegram
-- isi **User Email Domain** jika ingin domain inbox berbeda dari `MAILFLARE_USER_DOMAIN`
+Setelah login admin, buka `/worker/settings` dan isi sesuai kebutuhan:
 
-## 12) Setup Telegram Webhook (Jika Dipakai)
+- `User Email Domain`
+- Telegram settings (jika dipakai):
+  - `Bot Token`
+  - `Webhook Secret`
+  - `Allowed IDs`
+  - `Default Chat ID` / `Test Chat ID`
+  - `Target Mode`
+  - `Forward inbound`
 
-**Opsi A — via halaman Worker Settings (direkomendasikan):**
-- Buka `/worker/settings`
-- Isi field **Webhook URL** dengan `https://<app-domain>/api/telegram/webhook`
-- Klik tombol **Connect Webhook** — sistem akan memanggil `POST /api/worker-settings/connect-webhook` secara otomatis
+Rekomendasi:
 
-**Opsi B — via CLI:**
+- Simpan konfigurasi Telegram dari UI agar state tersimpan di DB.
+
+## 12) Setup Telegram Webhook (Opsional)
+
+Prasyarat sebelum set webhook:
+
+- Buat bot di `@BotFather` lalu simpan `BOT_TOKEN`.
+- Akun Telegram target harus pernah memulai chat dengan bot (klik `Start`) agar bot bisa mengirim pesan.
+- Dapatkan Telegram user ID (contoh via `@userinfobot`) untuk diisi ke `Allowed IDs` / target chat.
+
+Opsi A (disarankan):
+
+- Dari `/worker/settings`, isi URL webhook `https://<app-domain>/api/telegram/webhook`
+- Klik `Connect Webhook`
+
+Opsi B (CLI):
 
 ```bash
 pnpm telegram:webhook:set -- \
@@ -196,98 +250,130 @@ pnpm telegram:webhook:set -- \
   --allowed-updates "message,callback_query"
 ```
 
-Verifikasi:
+Verifikasi webhook:
 
 ```bash
 pnpm telegram:webhook:info -- --token "<BOT_TOKEN>"
 ```
 
-Tambahkan command menu bot di Telegram (opsional tapi direkomendasikan agar muncul autocomplete di chat):
+Opsional: set command menu bot
 
 ```bash
 pnpm telegram:commands -- --token "<BOT_TOKEN>"
 ```
 
+Checklist cepat setelah webhook:
+
+- `Webhook Status` di `/worker/settings` menunjukkan `Connected`.
+- Command `/help` atau `/start` di Telegram dibalas oleh bot.
+- Tombol `Test Connection` di `/worker/settings` sukses kirim pesan.
+
 ## 13) Setup Email Routing ke Worker
 
 Tujuan:
-- menerima email asli (`username@<mail-domain>`)
-- menjalankan handler `email()` di Worker untuk persist email ke D1 dan forward notifikasi ke Telegram
 
-Langkah:
-1. Cloudflare Dashboard → Email → Email Routing.
-2. Pastikan domain email sudah aktif dan terverifikasi di Email Routing.
-3. Tambah inbound rule:
-   - Rekomendasi: **Catch-all** `*@<mail-domain>` agar semua username dinamis bisa menerima email.
-4. Destination: pilih **Send to a Worker** → pilih nama worker Anda (sesuai field `name` di `wrangler.toml`).
+- Menerima email `username@<mail-domain>`
+- Worker memproses inbound email ke D1
+- Opsional forward notifikasi ke Telegram
 
-Behavior runtime saat ini:
-- Worker memvalidasi recipient ke tabel `users`. Lookup dilakukan secara exact match email, lalu fallback ke local-part (sebelum `@`), termasuk strip plus-addressing (contoh `user+tag@domain` → cocok ke user `user`).
-- Recipient yang tidak ditemukan di DB akan **di-reject** (`setReject('Unknown recipient')`).
-- Recipient valid: email dipersist ke tabel `emails` lalu notifikasi dikirim ke Telegram via `/api/telegram/notify-email`.
+Langkah Cloudflare Dashboard:
 
-Catch-all aman dipakai karena validasi recipient dilakukan di backend sebelum memproses apapun.
+1. Buka `Email -> Email Routing`
+2. Pastikan mail domain terverifikasi
+3. Buat inbound rule catch-all `*@<mail-domain>`
+4. Destination: `Send to a Worker` -> pilih `WORKER_NAME`
+
+Runtime behavior:
+
+- Recipient divalidasi ke tabel `users`
+- Recipient tidak dikenal ditolak (`Unknown recipient`)
+- Recipient valid disimpan ke `emails`
+- Jika `forward_inbound=true`, notifikasi Telegram ikut dikirim
 
 ## 14) Smoke Test Production
 
-Ganti `<APP_URL>` dengan domain UI kamu (`https://<app-domain>`):
+Ganti `<APP_URL>` dengan `https://<app-domain>`.
 
 ```bash
-# Endpoint publik (tidak perlu login)
 curl <APP_URL>/api/health
-
-# Endpoint yang butuh sesi login (akan 401 tanpa cookie)
 curl <APP_URL>/api/dashboard
 curl <APP_URL>/api/users
 curl <APP_URL>/api/worker-settings
 ```
 
-Checklist:
-- [ ] `/api/health` mengembalikan `{ ok: true }` atau status sukses
-- [ ] `/api/dashboard`, `/api/users`, `/api/worker-settings` mengembalikan `401` (bukan `500`) — artinya DB terhubung dan auth berjalan
-- [ ] Login via browser berhasil membuat session
-- [ ] Tombol **Test Connection** di `/worker/settings` berhasil kirim pesan ke Telegram
-- [ ] Email ke recipient yang terdaftar di DB diterima dan muncul di inbox
-- [ ] Email ke recipient tidak dikenal di-drop (tidak muncul di DB)
+Checklist minimum:
+
+- [ ] `/api/health` sukses
+- [ ] endpoint auth-protected return `401` (bukan `500`) saat tanpa cookie
+- [ ] login admin via browser berhasil
+- [ ] email ke user terdaftar masuk ke inbox
+- [ ] email ke recipient tidak dikenal tidak diproses
+- [ ] jika Telegram aktif, test message dan notify-email sukses
+
+Checklist tambahan jika Telegram aktif:
+
+- [ ] `Allowed IDs` sudah benar di `/worker/settings` (atau fallback env jika DB key belum ada)
+- [ ] `Target Mode` sudah sesuai (`All Allowed IDs` / `Default` / `Test`)
+- [ ] `Forward inbound` sudah aktif
+- [ ] `Default Chat ID` / `Test Chat ID` sesuai skenario pengiriman
+- [ ] Command `apikey` dari Telegram berhasil dijalankan oleh user yang di-allow
 
 ## 15) Troubleshooting Cepat
 
-Lihat log runtime production secara realtime:
+Pantau log realtime (langkah pertama saat ada masalah):
 
 ```bash
 pnpm exec wrangler tail --format pretty
 ```
 
-Gunakan ini sebagai langkah pertama saat gejala tidak jelas (deploy terlihat sukses tapi fitur tidak jalan, email tidak masuk, Telegram notify gagal, atau login error) agar terlihat error aktual dari Worker.
+Kasus umum:
 
 `wrangler whoami` gagal:
+
 - login ulang `pnpm exec wrangler login`
 
-`database_id` salah / D1 tidak terbaca:
-- cek `wrangler.toml` dan binding `DB`
-- pastikan schema sudah di-apply ke remote
+D1 tidak terbaca:
 
-Deploy sukses tapi tidak ada domain aktif:
+- cek `database_id` di `wrangler.toml`
+- cek binding D1 harus `DB`
+- pastikan schema remote sudah di-apply
+
+Deploy sukses tapi domain tidak aktif:
+
 - cek `[[routes]]`
-- pastikan custom domain ada di zone yang sama
+- pastikan domain ada di zone Cloudflare yang sama
 
-Email Routing tidak muncul ke Worker:
-- deploy ulang terbaru (`pnpm run deploy`)
-- pastikan script `postbuild-add-email-handler.mjs` sukses (tidak ada error saat build)
-- cek di Cloudflare Dashboard → Email Routing bahwa destination sudah dipilih **Send to a Worker** dan nama worker sudah benar (sesuai `wrangler.toml`)
+Email tidak masuk ke Worker:
 
-Email inbound drop terus:
-- cek recipient ada di tabel `users.email` (termasuk format exact: `username@domain`)
-- cek tidak ada plus-addressing yang hasilkan dua username identik (sistem hanya meneruskan jika hasil lookup unik)
-- cek `MAILFLARE_USER_DOMAIN` / `user_email_domain` di worker settings sudah sesuai domain email aktif
+- pastikan Email Routing destination = `Send to a Worker`
+- cek worker name sesuai `wrangler.toml`
+- deploy ulang (`pnpm run deploy`) bila perlu
+
+Email inbound selalu reject:
+
+- cek recipient memang ada di `users.email`
+- cek `MAILFLARE_USER_DOMAIN` / `user_email_domain` sesuai domain aktif
 
 Telegram notify tidak terkirim:
-- jika memanggil `/api/telegram/notify-email` dari service eksternal/non-login, cek `TELEGRAM_INTERNAL_SECRET` sudah di-set dan header `x-mailflare-telegram-secret` sesuai
-- cek `MAILFLARE_NOTIFY_URL` sudah benar dan bisa diakses dari Worker
-- cek setting chat target (`Allowed IDs`, `Default Chat ID`) di `/worker/settings`
-- cek `forward_inbound` di worker settings bernilai `true`/`1`
-- sambil kirim test notification, pantau log dengan `pnpm exec wrangler tail --format pretty`
 
-Login gagal padahal credentials benar:
-- Pastikan CAPTCHA Cloudflare Turnstile selesai — endpoint login menolak request tanpa `turnstileToken` yang valid
-- Cek `TURNSTILE_SITE_KEY` dan `TURNSTILE_SECRET_KEY` sudah di-set sebagai secret Worker
+- cek `forward_inbound` aktif di `/worker/settings`
+- cek target chat (`Allowed IDs`, `Default Chat ID`, `Test Chat ID`)
+- jika caller eksternal ke `/api/telegram/notify-email`, pastikan `TELEGRAM_INTERNAL_SECRET` + header `x-mailflare-telegram-secret` benar
+- cek `MAILFLARE_NOTIFY_URL` valid
+
+Login gagal:
+
+- pastikan Turnstile token valid
+- cek `TURNSTILE_SITE_KEY` dan `TURNSTILE_SECRET_KEY` sudah terpasang
+
+## 16) Final Checklist (Go-Live)
+
+- [ ] `wrangler.toml` final dan benar
+- [ ] D1 schema sudah remote apply
+- [ ] semua secret wajib sudah terpasang
+- [ ] deploy sukses ke custom domain
+- [ ] bootstrap admin sukses
+- [ ] worker settings tersimpan
+- [ ] email routing aktif ke worker
+- [ ] smoke test endpoint lolos
+- [ ] log runtime bersih dari error kritis

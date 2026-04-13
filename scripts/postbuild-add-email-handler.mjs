@@ -2,10 +2,82 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const workerPath = resolve('.svelte-kit', 'cloudflare', '_worker.js');
+const wranglerTomlPath = resolve('wrangler.toml');
 const marker = '/* MAILFLARE_EMAIL_HANDLER */';
 const exportBlockPattern = /export\s*\{\s*worker_default as default\s*\};\s*$/m;
 
 const source = readFileSync(workerPath, 'utf8');
+const wranglerVars = loadWranglerVars();
+const fallbackUserDomain = (wranglerVars.MAILFLARE_USER_DOMAIN ?? '').trim().toLowerCase();
+const fallbackNotifyUrl = (wranglerVars.MAILFLARE_NOTIFY_URL ?? '').trim();
+
+function loadWranglerVars() {
+  let content = '';
+  try {
+    content = readFileSync(wranglerTomlPath, 'utf8');
+  } catch {
+    return {};
+  }
+
+  const vars = {};
+  let inVarsSection = false;
+
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    if (line.startsWith('[') && line.endsWith(']')) {
+      inVarsSection = line === '[vars]';
+      continue;
+    }
+
+    if (!inVarsSection) {
+      continue;
+    }
+
+    const equalsIndex = line.indexOf('=');
+    if (equalsIndex <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, equalsIndex).trim();
+    if (!key) {
+      continue;
+    }
+
+    const rawValue = line.slice(equalsIndex + 1).trim();
+    vars[key] = parseTomlValue(rawValue);
+  }
+
+  return vars;
+}
+
+function parseTomlValue(rawValue) {
+  if (!rawValue) {
+    return '';
+  }
+
+  if (rawValue.startsWith('"') && rawValue.endsWith('"')) {
+    try {
+      return JSON.parse(rawValue);
+    } catch {
+      return rawValue.slice(1, -1);
+    }
+  }
+
+  if (rawValue.startsWith("'") && rawValue.endsWith("'")) {
+    return rawValue.slice(1, -1);
+  }
+
+  const commentIndex = rawValue.indexOf('#');
+  if (commentIndex >= 0) {
+    return rawValue.slice(0, commentIndex).trim();
+  }
+
+  return rawValue.trim();
+}
 
 if (source.includes(marker)) {
   process.exit(0);
@@ -16,6 +88,9 @@ if (!exportBlockPattern.test(source)) {
 }
 
 const injected = `${marker}
+const __mailflareFallbackUserDomain = ${JSON.stringify(fallbackUserDomain)};
+const __mailflareFallbackNotifyUrl = ${JSON.stringify(fallbackNotifyUrl)};
+
 function __mailflareNormalizeMessageId(value) {
   const normalized = String(value || '')
     .replace(/[<>]/g, '')
@@ -182,7 +257,7 @@ async function __mailflareResolveRecipient(db, recipient, authorativeDomain) {
 }
 
 async function __mailflareHandleInboundEmail(message, env, ctx, worker) {
-  const authorativeDomain = String((env && env.MAILFLARE_USER_DOMAIN) || '').trim().toLowerCase();
+  const authorativeDomain = String((env && env.MAILFLARE_USER_DOMAIN) || __mailflareFallbackUserDomain || '').trim().toLowerCase();
 
   // CRITICAL: In Cloudflare Email Workers, message.to is an object (not a plain string) where:
   //   - toJSON() / JSON.stringify → SMTP envelope RCPT TO  (the correct address CF received)
@@ -306,7 +381,7 @@ async function __mailflareHandleInboundEmail(message, env, ctx, worker) {
     }
   }
 
-  const notifyUrl = __mailflareBuildNotifyUrl(env && env.MAILFLARE_NOTIFY_URL);
+  const notifyUrl = __mailflareBuildNotifyUrl((env && env.MAILFLARE_NOTIFY_URL) || __mailflareFallbackNotifyUrl);
   if (!notifyUrl) {
     console.warn('[mailflare-email] MAILFLARE_NOTIFY_URL is not configured. Skip HTTP fallback notify.');
     return;
