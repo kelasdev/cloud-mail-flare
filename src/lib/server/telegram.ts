@@ -1219,7 +1219,8 @@ async function loadTelegramConfig(db: D1Database, env: TelegramPlatformEnv | und
     targetMode,
     defaultChatId: defaultChatFromDb || defaultChatFromEnv,
     testChatId: testChatFromDb || testChatFromEnv,
-    forwardInbound: parseBoolean(settings.get('forward_inbound'), true)
+    // Default is false when key is missing, aligned with Worker Settings UI default.
+    forwardInbound: parseBoolean(settings.get('forward_inbound'), false)
   };
 }
 
