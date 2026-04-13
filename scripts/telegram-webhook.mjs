@@ -180,6 +180,7 @@ async function run() {
         { command: "inbox", description: "View user inbox: /inbox <username>" },
         { command: "readmail", description: "Read specific email: /readmail <email_id>" },
         { command: "reset", description: "Reset user password: /reset <username>" },
+        { command: "apikey", description: "Generate API key or rotate: /apikey [regen]" },
         { command: "help", description: "Show help and available commands" }
       ]
     };

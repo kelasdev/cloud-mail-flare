@@ -15,7 +15,8 @@ function isPublicPath(pathname: string): boolean {
     pathname === '/api/auth/access-code' ||
     pathname === '/api/health' ||
     pathname === '/api/telegram/webhook' ||
-    pathname === '/api/telegram/notify-email'
+    pathname === '/api/telegram/notify-email' ||
+    pathname.startsWith('/api/public/v1/')
   );
 }
 
@@ -71,7 +72,8 @@ export const handle: Handle = async ({ event, resolve }) => {
         pathname === '/api/health' ||
         pathname === '/api/me' ||
         pathname === '/api/me/inbox' ||
-        pathname.startsWith('/api/me/emails/');
+        pathname.startsWith('/api/me/emails/') ||
+        pathname.startsWith('/api/public/v1/');
 
       if (!isAllowedApi) {
         return new Response(JSON.stringify({ error: 'Forbidden: inbox-only account' }), {

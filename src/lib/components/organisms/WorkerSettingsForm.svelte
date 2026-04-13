@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { WorkerSettingsDto } from '$lib/types/dto';
   import type { WorkerSettingsPageDto } from '$lib/server/services/worker-settings.service';
   import CardSurface from '$lib/components/atoms/CardSurface.svelte';
@@ -9,6 +10,18 @@
 
   export let data: WorkerSettingsPageDto;
 
+  interface ApiKeyRecordView {
+    id: string;
+    name: string;
+    createdBy: string;
+    createdAt: string;
+  }
+
+  interface ApiKeyStatusPayload {
+    hasActiveKey: boolean;
+    activeKey: ApiKeyRecordView | null;
+  }
+
   let settings: WorkerSettingsDto = { ...data.settings };
   let botTokenInput = '';
   let webhookSecretInput = '';
@@ -17,6 +30,19 @@
   let saving = false;
   let testingConnection = false;
   let connectingWebhook = false;
+  let apiKeyLoading = true;
+  let apiKeyActionLoading = false;
+  let apiKeyStatus: ApiKeyStatusPayload = {
+    hasActiveKey: false,
+    activeKey: null
+  };
+  let apiKeyMessage = '';
+  let apiKeyError = '';
+  let apiKeyPlaintext = '';
+
+  onMount(() => {
+    void loadApiKeyStatus();
+  });
 
   async function saveSettings(): Promise<void> {
     saving = true;
@@ -191,6 +217,86 @@
       connectingWebhook = false;
     }
   }
+
+  async function loadApiKeyStatus(): Promise<void> {
+    apiKeyLoading = true;
+    apiKeyError = '';
+
+    try {
+      const response = await fetch('/api/worker-settings/api-key', {
+        method: 'GET',
+        headers: {
+          'content-type': 'application/json'
+        }
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            error?: string;
+            payload?: ApiKeyStatusPayload;
+          }
+        | null;
+
+      if (!response.ok || !payload?.ok || !payload.payload) {
+        throw new Error(payload?.error ?? 'Failed to load API key status');
+      }
+
+      apiKeyStatus = payload.payload;
+    } catch (error) {
+      apiKeyError = error instanceof Error ? error.message : 'Failed to load API key status';
+    } finally {
+      apiKeyLoading = false;
+    }
+  }
+
+  async function generateApiKey(regenerate: boolean): Promise<void> {
+    if (apiKeyActionLoading) {
+      return;
+    }
+
+    apiKeyActionLoading = true;
+    apiKeyMessage = '';
+    apiKeyError = '';
+    apiKeyPlaintext = '';
+
+    try {
+      const response = await fetch(regenerate ? '/api/worker-settings/api-key/regenerate' : '/api/worker-settings/api-key/generate', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json'
+        }
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            error?: string;
+            payload?: {
+              apiKey?: string;
+              activeKey?: ApiKeyRecordView;
+              hasActiveKey?: boolean;
+            };
+          }
+        | null;
+
+      if (!response.ok || !payload?.ok || !payload.payload?.apiKey || !payload.payload.activeKey) {
+        const errorMessage = payload?.error ?? (response.status === 409 ? 'Active API key already exists' : 'Failed to issue API key');
+        throw new Error(errorMessage);
+      }
+
+      apiKeyPlaintext = payload.payload.apiKey;
+      apiKeyStatus = {
+        hasActiveKey: true,
+        activeKey: payload.payload.activeKey
+      };
+      apiKeyMessage = regenerate ? 'API key regenerated. Key lama sudah tidak berlaku.' : 'API key generated.';
+    } catch (error) {
+      apiKeyError = error instanceof Error ? error.message : 'Failed to issue API key';
+      await loadApiKeyStatus();
+    } finally {
+      apiKeyActionLoading = false;
+    }
+  }
 </script>
 
 <div class="wrap">
@@ -273,6 +379,53 @@
         </Button>
       {/if}
     </div>
+  </CardSurface>
+
+  <CardSurface>
+    <h2>API Key</h2>
+    <p class="text-muted">Create or rotate machine API key with prefix <code class="inline-code">cmf_v1_</code>.</p>
+    {#if apiKeyLoading}
+      <p class="feedback">Loading API key status...</p>
+    {:else}
+      <div class="api-key-status">
+        {#if apiKeyStatus.hasActiveKey}
+          <Badge tone="success">Active Key</Badge>
+          {#if apiKeyStatus.activeKey}
+            <p class="value"><strong>Created By:</strong> {apiKeyStatus.activeKey.createdBy || '-'}</p>
+            <p class="value"><strong>Created At:</strong> {apiKeyStatus.activeKey.createdAt || '-'}</p>
+          {/if}
+        {:else}
+          <Badge tone="warning">No Active Key</Badge>
+        {/if}
+      </div>
+      <div class="actions">
+        {#if apiKeyStatus.hasActiveKey}
+          <Button type="button" on:click={() => generateApiKey(true)} disabled={apiKeyActionLoading}>
+            {apiKeyActionLoading ? 'Regenerating...' : 'Regenerate API Key'}
+          </Button>
+        {:else}
+          <Button type="button" on:click={() => generateApiKey(false)} disabled={apiKeyActionLoading}>
+            {apiKeyActionLoading ? 'Generating...' : 'Generate API Key'}
+          </Button>
+        {/if}
+        <Button type="button" variant="secondary" on:click={loadApiKeyStatus} disabled={apiKeyLoading || apiKeyActionLoading}>
+          Refresh Status
+        </Button>
+      </div>
+      {#if apiKeyPlaintext}
+        <div class="api-key-box">
+          <div class="label">API Key (show once)</div>
+          <code>{apiKeyPlaintext}</code>
+          <p class="feedback error">Simpan key ini sekarang. Plaintext tidak ditampilkan lagi setelah refresh.</p>
+        </div>
+      {/if}
+      {#if apiKeyMessage}
+        <p class="feedback success">{apiKeyMessage}</p>
+      {/if}
+      {#if apiKeyError}
+        <p class="feedback error">{apiKeyError}</p>
+      {/if}
+    {/if}
   </CardSurface>
 </div>
 
@@ -358,6 +511,25 @@
     font-size: 0.78rem;
     color: var(--color-primary-500);
     overflow-wrap: anywhere;
+  }
+
+  .inline-code {
+    display: inline;
+    margin-top: 0;
+    font-size: 0.85em;
+  }
+
+  .api-key-status {
+    margin-top: var(--space-4);
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .api-key-box {
+    margin-top: var(--space-3);
+    border: 1px dashed color-mix(in srgb, var(--color-outline), transparent 20%);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
   }
 
   .footer {

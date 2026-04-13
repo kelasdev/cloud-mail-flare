@@ -25,6 +25,7 @@ Integrasi Telegram di project ini menyediakan:
 - `readmail <email_id>`
 - `access`
 - `reset <username>`
+- `apikey [regen]`
 
 4. Login access code (one-time):
 - Command `access` di Telegram membuat kode sekali pakai.
@@ -206,6 +207,7 @@ Semua command diproses oleh webhook route `POST /api/telegram/webhook`.
 | `readmail <email_id>` | Baca detail email |
 | `access` | Buat one-time login code |
 | `reset <username>` | Reset password user |
+| `apikey [regen]` | Generate/regenerate API key |
 | `/help` atau `/start` | Tampilkan daftar command |
 
 ### 5.1 `adduser <username>`
@@ -260,11 +262,21 @@ Membuat access code one-time format `MF-XXXX-XXXX-XXXX`.
 
 ### 5.6 `reset <username>`
 
-### 5.7 `/help` dan `/start`
+Reset password user lalu mengirim password baru dalam blok monospace.
+
+### 5.7 `apikey [regen]`
+
+- `apikey`:
+  - Jika belum ada key aktif, bot akan generate API key baru (prefix `cmf_v1_`) dan mengirim plaintext sekali.
+  - Jika key aktif sudah ada, bot menampilkan status key aktif dan instruksi `apikey regen`.
+- `apikey regen`:
+  - Mencabut key aktif lama lalu generate key baru.
+  - Plaintext key baru dikirim sekali.
+- Jika API key dibuat dari admin web (`/worker/settings`), sistem juga mengirim notifikasi API key ke target Telegram aktif.
+
+### 5.8 `/help` dan `/start`
 
 Bot akan membalas dengan daftar semua command yang tersedia. Respons yang sama juga ditampilkan jika user mengirim command yang tidak dikenal.
-
-Reset password user lalu mengirim password baru dalam blok monospace.
 
 ## 6) Inline Keyboard Email Actions
 

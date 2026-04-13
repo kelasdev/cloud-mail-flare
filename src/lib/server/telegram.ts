@@ -1,5 +1,6 @@
 import { createUserInDb } from '$lib/server/db';
 import { generateAccessCode, isAccessCodeFormatValid, normalizeAccessCode } from '$lib/server/access-code';
+import { generateApiKeyIfAbsent, regenerateApiKey } from '$lib/server/api-key';
 import { generateSecurePassword, hashPassword, sha256Hex } from '$lib/server/security';
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
@@ -116,6 +117,13 @@ export interface TelegramInboundEmailPayload {
   snippet?: string;
 }
 
+export interface TelegramApiKeyIssuedPayload {
+  apiKey: string;
+  action: 'generated' | 'regenerated';
+  createdBy: string;
+  source?: string;
+}
+
 export interface TelegramWebhookProcessInput {
   db?: D1Database;
   env?: TelegramPlatformEnv;
@@ -223,6 +231,39 @@ export async function sendUserCreatedTelegramNotification(
       sentCount += 1;
     } catch {
       // Notification failure should not fail user creation flow.
+    }
+  }
+
+  return sentCount;
+}
+
+export async function sendApiKeyIssuedTelegramNotification(
+  db: D1Database | undefined,
+  env: TelegramPlatformEnv | undefined,
+  payload: TelegramApiKeyIssuedPayload
+): Promise<number> {
+  if (!db) {
+    return 0;
+  }
+
+  const config = await loadTelegramConfig(db, env);
+  if (!config) {
+    return 0;
+  }
+
+  const targetChatIds = resolveTargetChatIds(config);
+  if (targetChatIds.length === 0) {
+    return 0;
+  }
+
+  const text = buildApiKeyIssuedMarkdown(payload);
+  let sentCount = 0;
+  for (const chatId of targetChatIds) {
+    try {
+      await sendTelegramMessage(config.token, chatId, text);
+      sentCount += 1;
+    } catch {
+      // Notification failure should not fail API key issuance flow.
     }
   }
 
@@ -473,6 +514,9 @@ async function handleMessageUpdate(
       return;
     case 'reset':
       await handleResetCommand(context, command.args);
+      return;
+    case 'apikey':
+      await handleApiKeyCommand(context, command.args);
       return;
     case 'help':
     case 'start':
@@ -727,6 +771,70 @@ async function handleResetCommand(context: TelegramCommandContext, args: string[
   await sendTelegramMessage(context.config.token, context.chatId, text);
 }
 
+async function handleApiKeyCommand(context: TelegramCommandContext, args: string[]): Promise<void> {
+  const action = (args[0] ?? '').trim().toLowerCase();
+  if (action && action !== 'regen' && action !== 'regenerate') {
+    await sendTelegramMessage(context.config.token, context.chatId, escapeMarkdownV2('Usage: apikey [regen]'));
+    return;
+  }
+
+  try {
+    if (action === 'regen' || action === 'regenerate') {
+      const issued = await regenerateApiKey(context.db, {
+        createdBy: `telegram:${context.telegramUserId}`,
+        name: 'telegram'
+      });
+
+      const text = [
+        '*API Key regenerated*',
+        '',
+        '```text',
+        sanitizeCodeBlock(issued.apiKey),
+        '```',
+        '',
+        'Key lama sudah tidak berlaku\\.'
+      ].join('\n');
+
+      await sendTelegramMessage(context.config.token, context.chatId, text);
+      return;
+    }
+
+    const result = await generateApiKeyIfAbsent(context.db, {
+      createdBy: `telegram:${context.telegramUserId}`,
+      name: 'telegram'
+    });
+
+    if (!result.ok) {
+      const createdAt = result.activeKey.createdAt ? inlineCodeMd(result.activeKey.createdAt) : '-';
+      const createdBy = result.activeKey.createdBy ? inlineCodeMd(result.activeKey.createdBy) : '-';
+      const text = [
+        '*API Key sudah aktif*',
+        '',
+        `created\\_at: ${createdAt}`,
+        `created\\_by: ${createdBy}`,
+        '',
+        `Ketik ${inlineCodeMd('apikey regen')} untuk generate ulang\\.`
+      ].join('\n');
+      await sendTelegramMessage(context.config.token, context.chatId, text);
+      return;
+    }
+
+    const text = [
+      '*API Key generated*',
+      '',
+      '```text',
+      sanitizeCodeBlock(result.issued.apiKey),
+      '```',
+      '',
+      'Simpan key ini sekarang\\.'
+    ].join('\n');
+
+    await sendTelegramMessage(context.config.token, context.chatId, text);
+  } catch {
+    await sendTelegramMessage(context.config.token, context.chatId, escapeMarkdownV2('Failed to issue API key.'));
+  }
+}
+
 async function showUserListPage(
   token: string,
   db: D1Database,
@@ -958,7 +1066,8 @@ function buildHelpMarkdown(): string {
     '`/inbox <username>`',
     '`/readmail <email_id>`',
     '`/access`',
-    '`/reset <username>`'
+    '`/reset <username>`',
+    '`/apikey [regen]`'
   ].join('\n');
 }
 
@@ -973,6 +1082,25 @@ function buildUserCreatedMarkdown(payload: TelegramUserCreatedPayload): string {
     `created_by: ${sanitizeCodeBlock(payload.createdBy)}`,
     `created_at: ${new Date().toISOString()}`,
     '```'
+  ].join('\n');
+}
+
+function buildApiKeyIssuedMarkdown(payload: TelegramApiKeyIssuedPayload): string {
+  const actionLabel = payload.action === 'regenerated' ? 'regenerated' : 'generated';
+  const source = payload.source?.trim() || 'worker-settings';
+
+  return [
+    '*API Key Issued*',
+    '',
+    '```text',
+    `action    : ${sanitizeCodeBlock(actionLabel)}`,
+    `source    : ${sanitizeCodeBlock(source)}`,
+    `created_by: ${sanitizeCodeBlock(payload.createdBy)}`,
+    `created_at: ${new Date().toISOString()}`,
+    `api_key   : ${sanitizeCodeBlock(payload.apiKey)}`,
+    '```',
+    '',
+    'Simpan key ini sekarang\\.'
   ].join('\n');
 }
 

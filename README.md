@@ -287,6 +287,14 @@ pnpm run deploy
 | `GET`    | `/api/dashboard`       | Data dashboard (Admin)            |
 | `GET`    | `/api/worker-settings` | Baca konfigurasi worker (Admin)   |
 | `PATCH`  | `/api/worker-settings` | Update konfigurasi worker (Admin) |
+| `GET`    | `/api/worker-settings/api-key` | Status API key aktif (Admin) |
+| `POST`   | `/api/worker-settings/api-key/generate` | Generate API key baru (Admin) |
+| `POST`   | `/api/worker-settings/api-key/regenerate` | Rotate/regenerate API key (Admin) |
+| `POST`   | `/api/public/v1/create_user` | Public API: create user (API key) |
+| `GET`    | `/api/public/v1/list_user` | Public API: list user (API key) |
+| `GET`    | `/api/public/v1/user_mailbox` | Public API: inbox by username (API key) |
+| `GET`    | `/api/public/v1/read_email` | Public API: read email rendered text (API key) |
+| `GET`    | `/api/public/v1/read_emai` | Alias kompatibilitas untuk `read_email` |
 
 ---
 
@@ -352,6 +360,7 @@ Fitur ini memungkinkan Anda menerima notifikasi di Telegram setiap ada email mas
 | `pnpm check`                   | Cek error TypeScript / Svelte                                  |
 | `pnpm build`                   | Build aplikasi untuk production                                |
 | `pnpm run deploy`              | Build + upload ke Cloudflare                                   |
+| `pnpm smoke:api-key:v1`        | Smoke test otomatis API key + public API v1 (lokal)           |
 | `pnpm telegram:webhook:set`    | Daftarkan webhook Telegram                                     |
 | `pnpm telegram:webhook:delete` | Hapus webhook Telegram                                         |
 | `pnpm telegram:webhook:info`   | Cek info webhook Telegram                                      |
@@ -420,6 +429,7 @@ cloud-mail-flare/
 | [deploy-fullstack-cloudflare.md](./docs/deploy-fullstack-cloudflare.md) | Panduan deployment lengkap ke production |
 | [integrasi-telegram-bot.md](./docs/integrasi-telegram-bot.md)           | Setup bot Telegram secara detail         |
 | [member-inbox-only.md](./docs/member-inbox-only.md)                     | Penjelasan mode Member / inbox-only      |
+| [api-key-public-api.md](./docs/api-key-public-api.md)                   | Spesifikasi + UAT terpadu API key & public API v1 |
 
 ---
 
