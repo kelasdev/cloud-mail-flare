@@ -250,6 +250,14 @@ Checklist:
 
 ## 15) Troubleshooting Cepat
 
+Lihat log runtime production secara realtime:
+
+```bash
+pnpm exec wrangler tail --format pretty
+```
+
+Gunakan ini sebagai langkah pertama saat gejala tidak jelas (deploy terlihat sukses tapi fitur tidak jalan, email tidak masuk, Telegram notify gagal, atau login error) agar terlihat error aktual dari Worker.
+
 `wrangler whoami` gagal:
 - login ulang `pnpm exec wrangler login`
 
@@ -276,6 +284,7 @@ Telegram notify tidak terkirim:
 - cek `MAILFLARE_NOTIFY_URL` sudah benar dan bisa diakses dari Worker
 - cek setting chat target (`Allowed IDs`, `Default Chat ID`) di `/worker/settings`
 - cek `forward_inbound` di worker settings bernilai `true`/`1`
+- sambil kirim test notification, pantau log dengan `pnpm exec wrangler tail --format pretty`
 
 Login gagal padahal credentials benar:
 - Pastikan CAPTCHA Cloudflare Turnstile selesai — endpoint login menolak request tanpa `turnstileToken` yang valid
