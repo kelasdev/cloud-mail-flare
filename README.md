@@ -20,6 +20,7 @@ Seluruh aplikasi berjalan sebagai satu **Cloudflare Worker** — tidak perlu ser
 | 👤 Manajemen Pengguna  | Admin bisa membuat & menghapus akun pengguna                         |
 | 🔐 Login Aman          | Session berbasis cookie + CAPTCHA Cloudflare Turnstile               |
 | 🤖 Notifikasi Telegram | Email masuk langsung dikirim ke chat Telegram Anda                   |
+| 🔑 Public API Key v1 | Akses API machine-to-machine (`create_user`, `list_user`, `user_mailbox`, `read_email`) |
 | 🛡️ Keamanan Password | Password disimpan dalam format hash PBKDF2-SHA256 (bukan teks biasa) |
 | 🗄️ Database Gratis   | Menggunakan Cloudflare D1 (SQLite serverless)                        |
 | 🌐 Multi-User          | Mendukung role Admin dan Member dengan hak akses berbeda             |
