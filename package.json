@@ -10,6 +10,7 @@
     "telegram:webhook:delete": "node ./scripts/telegram-webhook.mjs delete",
     "telegram:webhook:info": "node ./scripts/telegram-webhook.mjs info",
     "telegram:commands": "node ./scripts/telegram-webhook.mjs commands",
+    "d1:purge-users": "node ./scripts/purge-users-d1.mjs",
     "smoke:api-key:v1": "node ./scripts/smoke-api-key-v1.mjs",
     "dev": "vite dev",
     "build": "svelte-kit sync && vite build && node ./scripts/postbuild-add-email-handler.mjs",
