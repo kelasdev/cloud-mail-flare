@@ -19,7 +19,7 @@ Seluruh aplikasi berjalan sebagai satu **Cloudflare Worker** — tidak perlu ser
 | 📥 Inbox Email         | Menerima dan membaca email masuk via Cloudflare Email Routing        |
 | 👤 Manajemen Pengguna  | Admin bisa membuat & menghapus akun pengguna                         |
 | 🔐 Login Aman          | Session berbasis cookie + CAPTCHA Cloudflare Turnstile               |
-| 🤖 Notifikasi Telegram | Email masuk langsung dikirim ke chat Telegram Anda                   |
+| 🤖 Notifikasi Telegram | Email masuk langsung dikirim ke chat Telegram (dapat diaktifkan/nonaktifkan per pengguna) |
 | 🔑 Public API Key v1 | Akses API machine-to-machine (`create_user`, `list_user`, `user_mailbox`, `read_email`) |
 | 🛡️ Keamanan Password | Password disimpan dalam format hash PBKDF2-SHA256 (bukan teks biasa) |
 | 🗄️ Database Gratis   | Menggunakan Cloudflare D1 (SQLite serverless)                        |
@@ -83,7 +83,7 @@ Pastikan hal-hal berikut sudah tersedia di komputer Anda:
 | `GET`    | `/api/users`           | Daftar semua pengguna (Admin)     |
 | `POST`   | `/api/users`           | Buat pengguna baru (Admin)        |
 | `GET`    | `/api/users/:id`       | Detail pengguna (Admin)           |
-| `PATCH`  | `/api/users/:id`       | Update pengguna (Admin)           |
+| `PATCH`  | `/api/users/:id`       | Update pengguna — termasuk toggle `telegramEnabled` (Admin) |
 | `DELETE` | `/api/users/:id`       | Hapus pengguna (Admin)            |
 | `GET`    | `/api/users/:id/inbox` | Inbox pengguna tertentu (Admin)   |
 | `GET`    | `/api/dashboard`       | Data dashboard (Admin)            |
@@ -168,6 +168,10 @@ cloud-mail-flare/
 **Q: Apa bedanya `pnpm dev` dan `pnpm cf:dev`?**
 
 > `pnpm dev` menjalankan Vite biasa (cepat tapi tidak bisa akses database D1). `pnpm cf:dev` mensimulasikan lingkungan Cloudflare secara penuh termasuk D1 — gunakan ini untuk development sehari-hari.
+
+**Q: Bagaimana cara menonaktifkan notifikasi Telegram untuk pengguna tertentu?**
+
+> Buka halaman **Users → Edit User**. Pada form edit, hilangkan centang pada opsi **"Forward incoming emails to Telegram"** lalu klik **Save Changes**. Email masuk untuk pengguna tersebut tidak akan lagi diteruskan ke Telegram. Centang kembali untuk mengaktifkan ulang.
 
 ---
 
