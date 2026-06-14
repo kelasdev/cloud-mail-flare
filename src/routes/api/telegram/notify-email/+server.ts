@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { sendInboundEmailTelegramNotification } from '$lib/server/telegram';
-import { upsertInboundEmailInDb } from '$lib/server/db';
+import { getUserByEmailFromDb, upsertInboundEmailInDb } from '$lib/server/db';
 
 interface NotifyEmailBody {
   emailId?: string;
@@ -100,13 +100,18 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
       }
     }
 
-    const sentTo = await sendInboundEmailTelegramNotification(db, platform?.env, {
-      emailId,
-      sender,
-      recipient,
-      subject,
-      snippet
-    });
+    // Per-user: skip Telegram notification if user has telegram_enabled = false
+    const recipientUser = await getUserByEmailFromDb(db, recipient);
+    let sentTo = 0;
+    if (!recipientUser || recipientUser.telegramEnabled !== false) {
+      sentTo = await sendInboundEmailTelegramNotification(db, platform?.env, {
+        emailId,
+        sender,
+        recipient,
+        subject,
+        snippet
+      });
+    }
 
     return json({ ok: true, sentTo, stored });
   } catch (error) {

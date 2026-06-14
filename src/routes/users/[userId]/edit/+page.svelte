@@ -4,6 +4,7 @@
   import AppTopbar from '$lib/components/organisms/AppTopbar.svelte';
   import CardSurface from '$lib/components/atoms/CardSurface.svelte';
   import InputText from '$lib/components/atoms/InputText.svelte';
+  import Checkbox from '$lib/components/atoms/Checkbox.svelte';
   import Button from '$lib/components/atoms/Button.svelte';
   import type { PageData } from './$types';
 
@@ -11,6 +12,7 @@
 
   let email = data.user.email;
   let displayName = data.user.displayName;
+  let telegramEnabled = data.user.telegramEnabled;
   let password = '';
   let confirmPassword = '';
   let isSubmitting = false;
@@ -45,6 +47,7 @@
         body: JSON.stringify({
           email,
           displayName,
+          telegramEnabled,
           ...(password ? { password } : {})
         })
       });
@@ -139,6 +142,11 @@
               <InputText id="confirm-password" type="password" bind:value={confirmPassword} placeholder="Ulangi password baru" />
             </div>
 
+            <div>
+              <Checkbox id="telegram-enabled" bind:checked={telegramEnabled} />
+              <label for="telegram-enabled" class="inline-label">Forward incoming emails to Telegram</label>
+            </div>
+
             {#if errorMessage}
               <p class="error">{errorMessage}</p>
             {/if}
@@ -192,6 +200,17 @@
     letter-spacing: 0.1em;
     font-size: var(--font-size-label-xs);
     font-weight: 700;
+  }
+
+  .inline-label {
+    display: inline;
+    margin-left: 0.5rem;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: var(--color-text);
+    cursor: pointer;
   }
 
   .actions {

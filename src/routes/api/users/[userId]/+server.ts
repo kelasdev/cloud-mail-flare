@@ -22,11 +22,12 @@ export const PATCH: RequestHandler = async ({ platform, params, request, locals 
     return json({ error: 'Expected JSON body' }, { status: 400 });
   }
 
-  const body = (await request.json()) as { email?: string; displayName?: string; password?: string; resetPassword?: boolean };
+  const body = (await request.json()) as { email?: string; displayName?: string; password?: string; resetPassword?: boolean; telegramEnabled?: boolean };
   const resetPassword = body.resetPassword === true;
   const email = body.email?.trim().toLowerCase();
   const displayName = body.displayName?.trim();
   const password = body.password;
+  const telegramEnabled = body.telegramEnabled;
 
   if (resetPassword) {
     try {
@@ -76,7 +77,7 @@ export const PATCH: RequestHandler = async ({ platform, params, request, locals 
 
   try {
     const passwordHash = password ? await hashPassword(password) : undefined;
-    const user = await updateUserInDb(platform?.env?.DB, params.userId, { email, displayName, passwordHash });
+    const user = await updateUserInDb(platform?.env?.DB, params.userId, { email, displayName, passwordHash, telegramEnabled });
     if (!user) {
       return json({ error: 'User not found' }, { status: 404 });
     }

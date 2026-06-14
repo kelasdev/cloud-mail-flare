@@ -6,12 +6,14 @@ interface CreateUserInput {
   email: string;
   displayName?: string;
   passwordHash?: string;
+  telegramEnabled?: boolean;
 }
 
 interface UpdateUserInput {
   email?: string;
   displayName?: string;
   passwordHash?: string;
+  telegramEnabled?: boolean;
 }
 
 interface WorkerSettingsUpdateInput {
@@ -117,6 +119,7 @@ export async function getUsersFromDb(db?: D1Database): Promise<UserDto[]> {
       u.id,
       u.email,
       COALESCE(u.display_name, u.email) AS display_name,
+      u.telegram_enabled,
       CASE
         WHEN u.id = (SELECT owner_id FROM owner) THEN 'owner'
         ELSE 'member'
@@ -132,7 +135,7 @@ export async function getUsersFromDb(db?: D1Database): Promise<UserDto[]> {
     LEFT JOIN emails e
       ON e.user_id = u.id
       AND e.deleted_at IS NULL
-    GROUP BY u.id, u.email, u.display_name, u.password_hash
+    GROUP BY u.id, u.email, u.display_name, u.telegram_enabled, u.password_hash
     ORDER BY u.created_at DESC, u.id DESC
     LIMIT 100
   `;
@@ -143,6 +146,7 @@ export async function getUsersFromDb(db?: D1Database): Promise<UserDto[]> {
     displayName: String(row.display_name),
     role: String(row.role ?? 'member'),
     status: String(row.status ?? 'active') === 'disabled' ? 'disabled' : 'active',
+    telegramEnabled: Number(row.telegram_enabled ?? 1) === 1,
     totalEmails: Number(row.total_emails ?? 0),
     unreadEmails: Number(row.unread_emails ?? 0)
   }));
@@ -166,6 +170,7 @@ export async function getUserByIdFromDb(db: D1Database | undefined, userId: stri
         u.id,
         u.email,
         COALESCE(u.display_name, u.email) AS display_name,
+        u.telegram_enabled,
         CASE
           WHEN u.id = (SELECT owner_id FROM owner) THEN 'owner'
           ELSE 'member'
@@ -205,8 +210,58 @@ export async function getUserByIdFromDb(db: D1Database | undefined, userId: stri
     displayName: String(row.display_name),
     role: String(row.role ?? 'member'),
     status: String(row.status ?? 'active') === 'disabled' ? 'disabled' : 'active',
+    telegramEnabled: Number(row.telegram_enabled ?? 1) === 1,
     totalEmails: Number(row.total_emails ?? 0),
     unreadEmails: Number(row.unread_emails ?? 0)
+  };
+}
+
+export async function getUserByEmailFromDb(db: D1Database | undefined, email: string): Promise<UserDto | null> {
+  if (!db) {
+    return usersFallback.find((u) => u.email.toLowerCase() === email.toLowerCase()) ?? null;
+  }
+
+  const row = await db
+    .prepare(
+      `
+      WITH owner AS (
+        SELECT id AS owner_id
+        FROM users
+        ORDER BY created_at ASC, id ASC
+        LIMIT 1
+      )
+      SELECT
+        u.id,
+        u.email,
+        COALESCE(u.display_name, u.email) AS display_name,
+        u.telegram_enabled,
+        CASE
+          WHEN u.id = (SELECT owner_id FROM owner) THEN 'owner'
+          ELSE 'member'
+        END AS role,
+        CASE
+          WHEN u.password_hash IS NULL THEN 'disabled'
+          ELSE 'active'
+        END AS status
+      FROM users u
+      WHERE lower(u.email) = lower(?)
+      LIMIT 1
+    `
+    )
+    .bind(email)
+    .first<Record<string, unknown>>();
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: String(row.id),
+    email: String(row.email),
+    displayName: String(row.display_name),
+    role: String(row.role ?? 'member'),
+    status: String(row.status ?? 'active') === 'disabled' ? 'disabled' : 'active',
+    telegramEnabled: Number(row.telegram_enabled ?? 1) === 1
   };
 }
 
@@ -1139,15 +1194,18 @@ export async function createUserInDb(db: D1Database | undefined, input: CreateUs
     throw new Error('DB binding is required for create operation');
   }
 
+  const telegramEnabled = input.telegramEnabled ?? true;
+  const telegramEnabledInt = telegramEnabled ? 1 : 0;
+
   const id = crypto.randomUUID();
   await db
     .prepare(
       `
-      INSERT INTO users (id, email, display_name, password_hash, created_at, updated_at)
-      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      INSERT INTO users (id, email, display_name, password_hash, telegram_enabled, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `
     )
-    .bind(id, email, displayName, passwordHash)
+    .bind(id, email, displayName, passwordHash, telegramEnabledInt)
     .run();
 
   return {
@@ -1155,7 +1213,8 @@ export async function createUserInDb(db: D1Database | undefined, input: CreateUs
     email,
     displayName,
     role: 'member',
-    status: 'active'
+    status: 'active',
+    telegramEnabled
   };
 }
 
@@ -1175,6 +1234,7 @@ export async function updateUserInDb(
 
   const nextEmail = input.email?.trim().toLowerCase() ?? existing.email;
   const nextDisplayName = input.displayName?.trim() ?? existing.displayName;
+  const nextTelegramEnabled = input.telegramEnabled ?? existing.telegramEnabled;
   const existingAuth = await getUserAuthByEmail(db, existing.email);
   const nextPasswordHash = input.passwordHash ?? existingAuth?.passwordHash ?? null;
 
@@ -1182,17 +1242,18 @@ export async function updateUserInDb(
     .prepare(
       `
       UPDATE users
-      SET email = ?, display_name = ?, password_hash = ?, updated_at = CURRENT_TIMESTAMP
+      SET email = ?, display_name = ?, password_hash = ?, telegram_enabled = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `
     )
-    .bind(nextEmail, nextDisplayName, nextPasswordHash, userId)
+    .bind(nextEmail, nextDisplayName, nextPasswordHash, nextTelegramEnabled ? 1 : 0, userId)
     .run();
 
   return {
     ...existing,
     email: nextEmail,
-    displayName: nextDisplayName
+    displayName: nextDisplayName,
+    telegramEnabled: nextTelegramEnabled
   };
 }
 
@@ -1300,8 +1361,8 @@ const dashboardFallback: DashboardDto = {
 };
 
 const usersFallback: UserDto[] = [
-  { id: 'u1', email: 'alex@mailflare.dev', displayName: 'Alex Flare', role: 'owner', status: 'active', totalEmails: 27, unreadEmails: 3 },
-  { id: 'u2', email: 'ops@mailflare.dev', displayName: 'Ops Notify', role: 'member', status: 'active', totalEmails: 14, unreadEmails: 1 }
+  { id: 'u1', email: 'alex@mailflare.dev', displayName: 'Alex Flare', role: 'owner', status: 'active', telegramEnabled: true, totalEmails: 27, unreadEmails: 3 },
+  { id: 'u2', email: 'ops@mailflare.dev', displayName: 'Ops Notify', role: 'member', status: 'active', telegramEnabled: true, totalEmails: 14, unreadEmails: 1 }
 ];
 
 function inboxFallback(userId: string): EmailDto[] {

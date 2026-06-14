@@ -16,6 +16,7 @@ export interface UserDto {
   displayName: string;
   role: string;
   status: 'active' | 'disabled';
+  telegramEnabled: boolean;
   totalEmails?: number;
   unreadEmails?: number;
 }
