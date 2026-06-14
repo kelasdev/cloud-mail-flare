@@ -1,14 +1,75 @@
-export interface MetricDto {
+export interface DashboardMetricDto {
   key: string;
   label: string;
   value: string;
+  hint?: string;
   delta?: string;
   status?: 'ok' | 'warning' | 'critical';
+  tone?: 'primary' | 'success' | 'warning' | 'danger' | 'neutral';
+  icon?: string;
+}
+
+export interface DashboardUserSummaryDto {
+  id: string;
+  displayName: string;
+  email: string;
+  role: 'owner' | 'member';
+  totalEmails: number;
+  unreadEmails: number;
+  telegramEnabled: boolean;
+}
+
+export interface DashboardUserInsightsDto {
+  total: number;
+  telegramEnabled: number;
+  telegramDisabled: number;
+  topActive: DashboardUserSummaryDto[];
+}
+
+export interface DashboardPipelineDto {
+  total: number;
+  read: number;
+  unread: number;
+  starred: number;
+  archived: number;
+  deleted: number;
+  withAttachments: number;
+  averageSizeKb: number;
+  totalSizeMb: number;
+  receivedToday: number;
+  receivedLast7Days: number;
+}
+
+export type DashboardWorkerStatus = 'operational' | 'degraded' | 'down';
+
+export interface DashboardSystemHealthDto {
+  worker: DashboardWorkerStatus;
+  activeLoginSessions: number;
+  activeApiKeys: number;
+  pendingAccessCodes: number;
+  telegramUpdatesLast24h: number;
+  emailsLastHour: number;
+}
+
+export interface DashboardActivityEntryDto {
+  id: string;
+  action: string;
+  actor: string;
+  fromState: string;
+  toState: string;
+  createdAt: string;
 }
 
 export interface DashboardDto {
-  metrics: MetricDto[];
+  generatedAt: string;
+  metrics: DashboardMetricDto[];
+  pipeline: DashboardPipelineDto;
+  users: DashboardUserInsightsDto;
+  system: DashboardSystemHealthDto;
+  recentActivity: DashboardActivityEntryDto[];
 }
+
+export type MetricDto = DashboardMetricDto;
 
 export interface UserDto {
   id: string;

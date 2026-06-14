@@ -1,4 +1,11 @@
-import type { DashboardDto, EmailDetailDto, EmailDto, UserDto } from '$lib/types/dto';
+import type {
+  DashboardDto,
+  DashboardMetricDto,
+  DashboardWorkerStatus,
+  EmailDetailDto,
+  EmailDto,
+  UserDto
+} from '$lib/types/dto';
 import type { WorkerSettingsPageDto } from '$lib/server/services/worker-settings.service';
 import PostalMime from 'postal-mime';
 
@@ -99,29 +106,286 @@ function telegramColumnFragment(hasColumn: boolean): string {
   return hasColumn ? 'u.telegram_enabled,' : '1 AS telegram_enabled,';
 }
 
-export async function getDashboardMetrics(db?: D1Database): Promise<DashboardDto> {
+export async function getDashboardOverview(db?: D1Database): Promise<DashboardDto> {
   if (!db) {
-    return dashboardFallback;
+    return dashboardOverviewFallback;
   }
 
-  const [users, emails, unread, starred, archived, deleted] = await Promise.all([
+  const hasCol = await hasTelegramEnabledColumn(db);
+  const telegramCol = telegramColumnFragment(hasCol);
+
+  const [
+    usersCount,
+    telegramEnabledCount,
+    telegramDisabledCount,
+    topActiveRows,
+    pipelineTotals,
+    withAttachmentsCount,
+    storageAgg,
+    receivedTodayCount,
+    received7dCount,
+    activeLoginSessions,
+    activeApiKeys,
+    pendingAccessCodes,
+    telegramUpdates24h,
+    emailsLastHour,
+    recentActivityRows
+  ] = await Promise.all([
     db.prepare('SELECT COUNT(*) AS count FROM users').first<{ count: number }>(),
-    db.prepare('SELECT COUNT(*) AS count FROM emails').first<{ count: number }>(),
-    db.prepare('SELECT COUNT(*) AS count FROM emails WHERE is_read = 0 AND deleted_at IS NULL').first<{ count: number }>(),
-    db.prepare('SELECT COUNT(*) AS count FROM emails WHERE is_starred = 1 AND deleted_at IS NULL').first<{ count: number }>(),
-    db.prepare('SELECT COUNT(*) AS count FROM emails WHERE is_archived = 1 AND deleted_at IS NULL').first<{ count: number }>(),
-    db.prepare('SELECT COUNT(*) AS count FROM emails WHERE deleted_at IS NOT NULL').first<{ count: number }>()
+    db
+      .prepare(
+        hasCol
+          ? 'SELECT COUNT(*) AS count FROM users WHERE telegram_enabled = 1'
+          : 'SELECT COUNT(*) AS count FROM users'
+      )
+      .first<{ count: number }>(),
+    db
+      .prepare(
+        hasCol
+          ? 'SELECT COUNT(*) AS count FROM users WHERE telegram_enabled = 0'
+          : 'SELECT 0 AS count'
+      )
+      .first<{ count: number }>(),
+    db
+      .prepare(
+        `WITH owner AS (
+            SELECT id AS owner_id
+            FROM users
+            ORDER BY created_at ASC, id ASC
+            LIMIT 1
+          )
+          SELECT
+            u.id,
+            u.email,
+            COALESCE(u.display_name, u.email) AS display_name,
+            ${telegramCol}
+            CASE
+              WHEN u.id = (SELECT owner_id FROM owner) THEN 'owner'
+              ELSE 'member'
+            END AS role
+            ,
+            COUNT(e.id) AS total_emails,
+            SUM(CASE WHEN e.is_read = 0 AND e.deleted_at IS NULL THEN 1 ELSE 0 END) AS unread_emails
+          FROM users u
+          LEFT JOIN emails e ON e.user_id = u.id AND e.deleted_at IS NULL
+          GROUP BY u.id, u.email, u.display_name, u.password_hash
+          ORDER BY total_emails DESC, u.created_at DESC, u.id DESC
+          LIMIT 5`
+      )
+      .all<Record<string, unknown>>(),
+    db
+      .prepare(
+        `SELECT
+           COUNT(*) AS total,
+           SUM(CASE WHEN is_read = 1 AND deleted_at IS NULL THEN 1 ELSE 0 END) AS read_count,
+           SUM(CASE WHEN is_read = 0 AND deleted_at IS NULL THEN 1 ELSE 0 END) AS unread_count,
+           SUM(CASE WHEN is_starred = 1 AND deleted_at IS NULL THEN 1 ELSE 0 END) AS starred_count,
+           SUM(CASE WHEN is_archived = 1 AND deleted_at IS NULL THEN 1 ELSE 0 END) AS archived_count,
+           SUM(CASE WHEN deleted_at IS NOT NULL THEN 1 ELSE 0 END) AS deleted_count
+         FROM emails`
+      )
+      .first<{
+        total: number;
+        read_count: number;
+        unread_count: number;
+        starred_count: number;
+        archived_count: number;
+        deleted_count: number;
+      }>(),
+    db
+      .prepare('SELECT COUNT(*) AS count FROM emails WHERE parsed_has_attachments = 1 AND deleted_at IS NULL')
+      .first<{ count: number }>(),
+    db
+      .prepare(
+        `SELECT
+           COALESCE(SUM(raw_size), 0) AS total_bytes,
+           COALESCE(AVG(raw_size), 0) AS avg_bytes
+         FROM emails
+         WHERE deleted_at IS NULL`
+      )
+      .first<{ total_bytes: number; avg_bytes: number }>(),
+    db
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM emails
+         WHERE received_at >= datetime('now', 'start of day')`
+      )
+      .first<{ count: number }>(),
+    db
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM emails
+         WHERE received_at >= datetime('now', '-7 days')`
+      )
+      .first<{ count: number }>(),
+    db
+      .prepare('SELECT COUNT(*) AS count FROM login_sessions WHERE expires_at > datetime(\'now\')')
+      .first<{ count: number }>(),
+    db
+      .prepare('SELECT COUNT(*) AS count FROM api_keys WHERE revoked_at IS NULL')
+      .first<{ count: number }>(),
+    db
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM access_codes
+         WHERE used_at IS NULL AND expires_at > datetime('now')`
+      )
+      .first<{ count: number }>(),
+    db
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM telegram_webhook_updates
+         WHERE processed_at >= datetime('now', '-1 day')`
+      )
+      .first<{ count: number }>(),
+    db
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM emails
+         WHERE received_at >= datetime('now', '-1 hour')`
+      )
+      .first<{ count: number }>(),
+    db
+      .prepare(
+        `SELECT
+           h.id,
+           h.action,
+           h.actor,
+           h.from_state,
+           h.to_state,
+           h.created_at,
+           e.subject AS email_subject
+         FROM email_status_history h
+         LEFT JOIN emails e ON e.id = h.email_id
+         ORDER BY h.created_at DESC, h.id DESC
+         LIMIT 5`
+      )
+      .all<Record<string, unknown>>()
   ]);
 
+  const totalEmails = Number(pipelineTotals?.total ?? 0);
+  const unreadCount = Number(pipelineTotals?.unread_count ?? 0);
+  const starredCount = Number(pipelineTotals?.starred_count ?? 0);
+  const archivedCount = Number(pipelineTotals?.archived_count ?? 0);
+  const deletedCount = Number(pipelineTotals?.deleted_count ?? 0);
+  const readCount = Number(pipelineTotals?.read_count ?? 0);
+
+  const totalBytes = Number(storageAgg?.total_bytes ?? 0);
+  const avgBytes = Number(storageAgg?.avg_bytes ?? 0);
+  const totalSizeMb = totalBytes / (1024 * 1024);
+  const averageSizeKb = avgBytes / 1024;
+
+  const usersTotal = Number(usersCount?.count ?? 0);
+  const telegramEnabled = Number(telegramEnabledCount?.count ?? 0);
+  const telegramDisabled = Number(telegramDisabledCount?.count ?? 0);
+
+  const worker: DashboardWorkerStatus =
+    Number(emailsLastHour?.count ?? 0) > 0 || totalEmails > 0 ? 'operational' : 'degraded';
+
+  const metrics: DashboardMetricDto[] = [
+    {
+      key: 'users',
+      label: 'Registered Users',
+      value: formatNumber(usersTotal),
+      hint: `${formatNumber(telegramEnabled)} telegram aktif`,
+      status: 'ok',
+      tone: 'primary',
+      icon: 'group'
+    },
+    {
+      key: 'emails',
+      label: 'Email Records',
+      value: formatNumber(totalEmails),
+      hint: `${formatNumber(received7dCount?.count ?? 0)} 7 hari terakhir`,
+      delta: `+${formatNumber(receivedTodayCount?.count ?? 0)} hari ini`,
+      status: 'ok',
+      tone: 'primary',
+      icon: 'mail'
+    },
+    {
+      key: 'unread',
+      label: 'Unread Inbox Items',
+      value: formatNumber(unreadCount),
+      hint: unreadCount > 0 ? 'Perlu ditinjau' : 'Semua sudah terbaca',
+      status: unreadCount > 0 ? 'warning' : 'ok',
+      tone: 'warning',
+      icon: 'mark_email_unread'
+    },
+    {
+      key: 'starred',
+      label: 'Starred by Admin',
+      value: formatNumber(starredCount),
+      hint: 'Disimpan permanen',
+      status: 'ok',
+      tone: 'success',
+      icon: 'star'
+    },
+    {
+      key: 'archived',
+      label: 'Archived',
+      value: formatNumber(archivedCount),
+      hint: 'Dipindahkan dari inbox',
+      status: 'ok',
+      tone: 'neutral',
+      icon: 'archive'
+    },
+    {
+      key: 'deleted',
+      label: 'Soft Deleted',
+      value: formatNumber(deletedCount),
+      hint: 'Dalam masa retensi',
+      status: deletedCount > 0 ? 'critical' : 'ok',
+      tone: 'danger',
+      icon: 'delete'
+    }
+  ];
+
   return {
-    metrics: [
-      { key: 'users', label: 'Registered Users', value: String(users?.count ?? 0), status: 'ok' },
-      { key: 'emails', label: 'Email Records', value: String(emails?.count ?? 0), status: 'ok' },
-      { key: 'unread', label: 'Unread Inbox Items', value: String(unread?.count ?? 0), status: 'warning' },
-      { key: 'starred', label: 'Starred by Admin', value: String(starred?.count ?? 0), status: 'ok' },
-      { key: 'archived', label: 'Archived', value: String(archived?.count ?? 0), status: 'ok' },
-      { key: 'deleted', label: 'Soft Deleted', value: String(deleted?.count ?? 0), status: 'critical' }
-    ]
+    generatedAt: new Date().toISOString(),
+    metrics,
+    pipeline: {
+      total: totalEmails,
+      read: readCount,
+      unread: unreadCount,
+      starred: starredCount,
+      archived: archivedCount,
+      deleted: deletedCount,
+      withAttachments: Number(withAttachmentsCount?.count ?? 0),
+      averageSizeKb: Number(averageSizeKb.toFixed(1)),
+      totalSizeMb: Number(totalSizeMb.toFixed(2)),
+      receivedToday: Number(receivedTodayCount?.count ?? 0),
+      receivedLast7Days: Number(received7dCount?.count ?? 0)
+    },
+    users: {
+      total: usersTotal,
+      telegramEnabled,
+      telegramDisabled,
+      topActive: (topActiveRows.results ?? []).map((row) => ({
+        id: String(row.id),
+        displayName: String(row.display_name ?? row.email),
+        email: String(row.email),
+        role: String(row.role ?? 'member') === 'owner' ? 'owner' : 'member',
+        telegramEnabled: Number(row.telegram_enabled ?? 1) === 1,
+        totalEmails: Number(row.total_emails ?? 0),
+        unreadEmails: Number(row.unread_emails ?? 0)
+      }))
+    },
+    system: {
+      worker,
+      activeLoginSessions: Number(activeLoginSessions?.count ?? 0),
+      activeApiKeys: Number(activeApiKeys?.count ?? 0),
+      pendingAccessCodes: Number(pendingAccessCodes?.count ?? 0),
+      telegramUpdatesLast24h: Number(telegramUpdates24h?.count ?? 0),
+      emailsLastHour: Number(emailsLastHour?.count ?? 0)
+    },
+    recentActivity: (recentActivityRows.results ?? []).map((row) => ({
+      id: String(row.id),
+      action: String(row.action ?? ''),
+      actor: String(row.actor ?? 'system'),
+      fromState: String(row.from_state ?? ''),
+      toState: String(row.to_state ?? ''),
+      createdAt: String(row.created_at ?? '')
+    }))
   };
 }
 
@@ -1409,15 +1673,47 @@ export async function softDeleteUserInDb(db: D1Database | undefined, userId: str
   return { deleted: true };
 }
 
-const dashboardFallback: DashboardDto = {
+const dashboardOverviewFallback: DashboardDto = {
+  generatedAt: new Date().toISOString(),
   metrics: [
-    { key: 'users', label: 'Registered Users', value: '12', delta: '+2 this week', status: 'ok' },
-    { key: 'emails', label: 'Email Records', value: '4,281', delta: '+340/day', status: 'ok' },
-    { key: 'unread', label: 'Unread Inbox Items', value: '156', delta: 'Needs review', status: 'warning' },
-    { key: 'starred', label: 'Starred by Admin', value: '89', status: 'ok' },
-    { key: 'archived', label: 'Archived', value: '401', status: 'ok' },
-    { key: 'deleted', label: 'Soft Deleted', value: '27', status: 'critical' }
-  ]
+    { key: 'users', label: 'Registered Users', value: '2', hint: '2 telegram aktif', status: 'ok', tone: 'primary', icon: 'group' },
+    { key: 'emails', label: 'Email Records', value: '2', hint: '2 dalam 7 hari terakhir', delta: '+0 hari ini', status: 'ok', tone: 'primary', icon: 'mail' },
+    { key: 'unread', label: 'Unread Inbox Items', value: '2', hint: 'Perlu ditinjau', status: 'warning', tone: 'warning', icon: 'mark_email_unread' },
+    { key: 'starred', label: 'Starred by Admin', value: '1', hint: 'Disimpan permanen', status: 'ok', tone: 'success', icon: 'star' },
+    { key: 'archived', label: 'Archived', value: '1', hint: 'Dipindahkan dari inbox', status: 'ok', tone: 'neutral', icon: 'archive' },
+    { key: 'deleted', label: 'Soft Deleted', value: '0', hint: 'Dalam masa retensi', status: 'ok', tone: 'danger', icon: 'delete' }
+  ],
+  pipeline: {
+    total: 2,
+    read: 0,
+    unread: 2,
+    starred: 1,
+    archived: 1,
+    deleted: 0,
+    withAttachments: 0,
+    averageSizeKb: 12.4,
+    totalSizeMb: 0.05,
+    receivedToday: 0,
+    receivedLast7Days: 2
+  },
+  users: {
+    total: 2,
+    telegramEnabled: 2,
+    telegramDisabled: 0,
+    topActive: [
+      { id: 'u1', displayName: 'Alex Flare', email: 'alex@mailflare.dev', role: 'owner', telegramEnabled: true, totalEmails: 1, unreadEmails: 1 },
+      { id: 'u2', displayName: 'Ops Notify', email: 'ops@mailflare.dev', role: 'member', telegramEnabled: true, totalEmails: 1, unreadEmails: 1 }
+    ]
+  },
+  system: {
+    worker: 'operational',
+    activeLoginSessions: 0,
+    activeApiKeys: 0,
+    pendingAccessCodes: 0,
+    telegramUpdatesLast24h: 0,
+    emailsLastHour: 0
+  },
+  recentActivity: []
 };
 
 const usersFallback: UserDto[] = [
@@ -1477,6 +1773,13 @@ function parseBooleanSetting(value: string | undefined, fallback: boolean): bool
     return fallback;
   }
   return value === '1' || value.toLowerCase() === 'true';
+}
+
+function formatNumber(value: number): string {
+  if (!Number.isFinite(value)) {
+    return '0';
+  }
+  return new Intl.NumberFormat('en-US').format(Math.trunc(value));
 }
 
 function parseNumberSetting(value: string | undefined, fallback: number): number {
