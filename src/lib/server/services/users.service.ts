@@ -5,7 +5,9 @@ import {
   getUserArchivedEmailCountFromDb,
   getUserByIdFromDb,
   getUserInboxFromDb,
-  getUsersFromDb
+  getUsersFromDb,
+  searchUserInboxFromDb,
+  type SearchUserInboxResult
 } from '$lib/server/db';
 
 export async function getUsers(event: RequestEvent): Promise<UserDto[]> {
@@ -14,6 +16,14 @@ export async function getUsers(event: RequestEvent): Promise<UserDto[]> {
 
 export async function getUserInbox(event: RequestEvent, userId: string): Promise<EmailDto[]> {
   return getUserInboxFromDb(event.platform?.env?.DB, userId);
+}
+
+export async function searchUserInbox(
+  event: RequestEvent,
+  userId: string,
+  query: string
+): Promise<SearchUserInboxResult> {
+  return searchUserInboxFromDb(event.platform?.env?.DB, userId, { query });
 }
 
 export async function getUserArchivedEmailCount(event: RequestEvent, userId: string): Promise<number> {

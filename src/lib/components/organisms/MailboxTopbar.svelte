@@ -7,6 +7,8 @@
   export let userLabel = '';
   export let searchQuery = '';
   export let searchPlaceholder = 'Search emails...';
+  export let searchLabel = 'Cari';
+  export let onSearch: (() => void) | undefined = undefined;
   export let showSearch = true;
   export let showRefresh = true;
   export let showLogout = true;
@@ -55,7 +57,12 @@
       </a>
       {#if showSearch}
         <div class="search">
-          <SearchField bind:value={searchQuery} placeholder={searchPlaceholder} />
+          <SearchField
+            bind:value={searchQuery}
+            placeholder={searchPlaceholder}
+            {searchLabel}
+            {onSearch}
+          />
         </div>
       {/if}
     </div>

@@ -1192,6 +1192,86 @@ export async function getUserInboxFromDb(db: D1Database | undefined, userId: str
   }));
 }
 
+export interface SearchUserInboxOptions {
+  query: string;
+  limit?: number;
+}
+
+export interface SearchUserInboxResult {
+  items: EmailDto[];
+  query: string;
+  tokenCount: number;
+}
+
+export async function searchUserInboxFromDb(
+  db: D1Database | undefined,
+  userId: string,
+  options: SearchUserInboxOptions
+): Promise<SearchUserInboxResult> {
+  const rawQuery = (options.query ?? '').trim();
+  const tokens = rawQuery
+    .split(/\s+/)
+    .map((token) => token.replace(/[%_]/g, (match) => `\\${match}`))
+    .filter((token) => token.length > 0)
+    .slice(0, 8);
+
+  if (!db || tokens.length === 0) {
+    return { items: [], query: rawQuery, tokenCount: 0 };
+  }
+
+  const limit = Math.min(Math.max(options.limit ?? 200, 1), 200);
+  const whereSql = tokens
+    .map(
+      () =>
+        '(subject LIKE ? ESCAPE \'\\\' OR sender LIKE ? ESCAPE \'\\\' OR recipient LIKE ? ESCAPE \'\\\' OR snippet LIKE ? ESCAPE \'\\\' OR COALESCE(body_text, \'\') LIKE ? ESCAPE \'\\\')'
+    )
+    .join(' AND ');
+
+  const bindings: Array<string> = [];
+  for (const token of tokens) {
+    const needle = `%${token}%`;
+    for (let i = 0; i < 5; i += 1) {
+      bindings.push(needle);
+    }
+  }
+
+  const statement = `
+    SELECT
+      id,
+      sender,
+      subject,
+      snippet,
+      received_at,
+      is_read,
+      is_starred,
+      is_archived
+    FROM emails
+    WHERE user_id = ?
+      AND deleted_at IS NULL
+      AND ${whereSql}
+    ORDER BY received_at DESC
+    LIMIT ?
+  `;
+
+  const { results } = await db
+    .prepare(statement)
+    .bind(userId, ...bindings, limit)
+    .all<Record<string, unknown>>();
+
+  const items: EmailDto[] = (results ?? []).map((row) => ({
+    id: String(row.id),
+    sender: String(row.sender ?? ''),
+    subject: String(row.subject ?? '(No Subject)'),
+    snippet: String(row.snippet ?? ''),
+    receivedAt: String(row.received_at ?? ''),
+    isRead: Number(row.is_read ?? 0) === 1,
+    isStarred: Number(row.is_starred ?? 0) === 1,
+    isArchived: Number(row.is_archived ?? 0) === 1
+  }));
+
+  return { items, query: rawQuery, tokenCount: tokens.length };
+}
+
 export async function getEmailByIdFromDb(
   db: D1Database | undefined,
   userId: string,

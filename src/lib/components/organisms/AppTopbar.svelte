@@ -10,6 +10,8 @@
   export let showSearch = true;
   export let searchQuery = '';
   export let searchPlaceholder = 'Search...';
+  export let searchLabel = 'Cari';
+  export let onSearch: (() => void) | undefined = undefined;
   export let showRefresh = true;
   export let showLogout = true;
   export let showMenuButton = true;
@@ -63,7 +65,12 @@
   <div class="right">
     {#if showSearch}
       <div class="search">
-        <SearchField bind:value={searchQuery} placeholder={searchPlaceholder} />
+        <SearchField
+          bind:value={searchQuery}
+          placeholder={searchPlaceholder}
+          {searchLabel}
+          {onSearch}
+        />
       </div>
     {/if}
     <slot name="actions" />
