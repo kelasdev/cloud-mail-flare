@@ -77,6 +77,28 @@ export interface ApplyEmailQuickActionResult {
   email?: EmailActionState;
 }
 
+let telegramEnabledColumnExists: boolean | null = null;
+
+async function hasTelegramEnabledColumn(db: D1Database): Promise<boolean> {
+  if (telegramEnabledColumnExists !== null) {
+    return telegramEnabledColumnExists;
+  }
+  try {
+    const result = await db
+      .prepare("PRAGMA table_info(users)")
+      .all<{ name: string }>();
+    const columns = (result.results ?? []).map((r) => r.name);
+    telegramEnabledColumnExists = columns.includes('telegram_enabled');
+  } catch {
+    telegramEnabledColumnExists = false;
+  }
+  return telegramEnabledColumnExists;
+}
+
+function telegramColumnFragment(hasColumn: boolean): string {
+  return hasColumn ? 'u.telegram_enabled,' : '1 AS telegram_enabled,';
+}
+
 export async function getDashboardMetrics(db?: D1Database): Promise<DashboardDto> {
   if (!db) {
     return dashboardFallback;
@@ -108,6 +130,9 @@ export async function getUsersFromDb(db?: D1Database): Promise<UserDto[]> {
     return usersFallback;
   }
 
+  const hasCol = await hasTelegramEnabledColumn(db);
+  const telegramCol = telegramColumnFragment(hasCol);
+
   const query = `
     WITH owner AS (
       SELECT id AS owner_id
@@ -119,7 +144,7 @@ export async function getUsersFromDb(db?: D1Database): Promise<UserDto[]> {
       u.id,
       u.email,
       COALESCE(u.display_name, u.email) AS display_name,
-      u.telegram_enabled,
+      ${telegramCol}
       CASE
         WHEN u.id = (SELECT owner_id FROM owner) THEN 'owner'
         ELSE 'member'
@@ -135,7 +160,7 @@ export async function getUsersFromDb(db?: D1Database): Promise<UserDto[]> {
     LEFT JOIN emails e
       ON e.user_id = u.id
       AND e.deleted_at IS NULL
-    GROUP BY u.id, u.email, u.display_name, u.telegram_enabled, u.password_hash
+    GROUP BY u.id, u.email, u.display_name, u.password_hash
     ORDER BY u.created_at DESC, u.id DESC
     LIMIT 100
   `;
@@ -157,6 +182,9 @@ export async function getUserByIdFromDb(db: D1Database | undefined, userId: stri
     return usersFallback.find((user) => user.id === userId) ?? null;
   }
 
+  const hasCol = await hasTelegramEnabledColumn(db);
+  const telegramCol = telegramColumnFragment(hasCol);
+
   const row = await db
     .prepare(
       `
@@ -170,7 +198,7 @@ export async function getUserByIdFromDb(db: D1Database | undefined, userId: stri
         u.id,
         u.email,
         COALESCE(u.display_name, u.email) AS display_name,
-        u.telegram_enabled,
+        ${telegramCol}
         CASE
           WHEN u.id = (SELECT owner_id FROM owner) THEN 'owner'
           ELSE 'member'
@@ -221,6 +249,9 @@ export async function getUserByEmailFromDb(db: D1Database | undefined, email: st
     return usersFallback.find((u) => u.email.toLowerCase() === email.toLowerCase()) ?? null;
   }
 
+  const hasCol = await hasTelegramEnabledColumn(db);
+  const telegramCol = telegramColumnFragment(hasCol);
+
   const row = await db
     .prepare(
       `
@@ -234,7 +265,7 @@ export async function getUserByEmailFromDb(db: D1Database | undefined, email: st
         u.id,
         u.email,
         COALESCE(u.display_name, u.email) AS display_name,
-        u.telegram_enabled,
+        ${telegramCol}
         CASE
           WHEN u.id = (SELECT owner_id FROM owner) THEN 'owner'
           ELSE 'member'
@@ -1198,15 +1229,29 @@ export async function createUserInDb(db: D1Database | undefined, input: CreateUs
   const telegramEnabledInt = telegramEnabled ? 1 : 0;
 
   const id = crypto.randomUUID();
-  await db
-    .prepare(
+  const hasCol = await hasTelegramEnabledColumn(db);
+
+  if (hasCol) {
+    await db
+      .prepare(
+        `
+        INSERT INTO users (id, email, display_name, password_hash, telegram_enabled, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `
-      INSERT INTO users (id, email, display_name, password_hash, telegram_enabled, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    `
-    )
-    .bind(id, email, displayName, passwordHash, telegramEnabledInt)
-    .run();
+      )
+      .bind(id, email, displayName, passwordHash, telegramEnabledInt)
+      .run();
+  } else {
+    await db
+      .prepare(
+        `
+        INSERT INTO users (id, email, display_name, password_hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `
+      )
+      .bind(id, email, displayName, passwordHash)
+      .run();
+  }
 
   return {
     id,
@@ -1238,16 +1283,31 @@ export async function updateUserInDb(
   const existingAuth = await getUserAuthByEmail(db, existing.email);
   const nextPasswordHash = input.passwordHash ?? existingAuth?.passwordHash ?? null;
 
-  await db
-    .prepare(
+  const hasCol = await hasTelegramEnabledColumn(db);
+
+  if (hasCol) {
+    await db
+      .prepare(
+        `
+        UPDATE users
+        SET email = ?, display_name = ?, password_hash = ?, telegram_enabled = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
       `
-      UPDATE users
-      SET email = ?, display_name = ?, password_hash = ?, telegram_enabled = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `
-    )
-    .bind(nextEmail, nextDisplayName, nextPasswordHash, nextTelegramEnabled ? 1 : 0, userId)
-    .run();
+      )
+      .bind(nextEmail, nextDisplayName, nextPasswordHash, nextTelegramEnabled ? 1 : 0, userId)
+      .run();
+  } else {
+    await db
+      .prepare(
+        `
+        UPDATE users
+        SET email = ?, display_name = ?, password_hash = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `
+      )
+      .bind(nextEmail, nextDisplayName, nextPasswordHash, userId)
+      .run();
+  }
 
   return {
     ...existing,

@@ -178,3 +178,11 @@ CREATE INDEX IF NOT EXISTS idx_login_sessions_user ON login_sessions(user_id, ex
 -- ── Cleanup (tables no longer used) ────────────────────────────────────
 DROP INDEX IF EXISTS idx_telegram_events_user;
 DROP TABLE IF EXISTS telegram_events;
+
+-- ── Migrasi: Per-user Telegram forwarding toggle ─────────────────────
+-- Kolom telegram_enabled sudah ada di CREATE TABLE IF NOT EXISTS di atas
+-- untuk database baru. Untuk database existing, jalankan ALTER TABLE:
+-- ALTER TABLE users ADD COLUMN telegram_enabled INTEGER NOT NULL DEFAULT 1;
+--
+-- Cek apakah kolom sudah ada (idempoten):
+-- PRAGMA table_info(users);
