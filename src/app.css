@@ -70,7 +70,7 @@ body {
   font-family: var(--font-family-body);
   font-size: var(--font-size-body-sm);
   color: var(--color-text);
-  background: radial-gradient(circle at 100% 0%, rgba(0, 81, 255, 0.06), transparent 40%), var(--color-surface);
+  background: var(--color-surface);
 }
 
 h1,
@@ -99,15 +99,24 @@ select {
 }
 
 .layout-shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
   position: relative;
 }
 
 .layout-shell .main {
-  min-height: 100vh;
-  width: 100%;
+  flex: 1;
   min-width: 0;
-  padding-left: var(--layout-sidebar-offset);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.layout-shell .main :global(.content) {
+  flex: 1;
+  overflow-y: auto;
 }
 
 @media (max-width: 960px) {
@@ -118,15 +127,11 @@ select {
 
 .surface-card {
   background: var(--color-surface-card);
-  border: 1px solid color-mix(in srgb, var(--color-outline), transparent 60%);
+  border: 1px solid color-mix(in srgb, var(--color-outline), transparent 72%);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-ambient);
 }
 
-.text-muted {
-  color: var(--color-text-muted);
-}
-
-.signature-bg {
-  background: var(--gradient-signature);
+.surface-card.padded {
+  padding: var(--space-5);
 }

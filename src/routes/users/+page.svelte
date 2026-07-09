@@ -3,9 +3,11 @@
   import AppSidebar from '$lib/components/organisms/AppSidebar.svelte';
   import AppTopbar from '$lib/components/organisms/AppTopbar.svelte';
   import UserListPanel from '$lib/components/organisms/UserListPanel.svelte';
+  import { page } from '$app/stores';
   import type { PageData } from './$types';
 
   export let data: PageData;
+  $: adminEmail = $page.data.sessionEmail ?? null;
 
   let searchQuery = '';
 
@@ -28,13 +30,14 @@
 </script>
 
 <div class="layout-shell">
-  <AppSidebar active="users" />
+  <AppSidebar active="users" adminEmail={adminEmail} />
   <section class="main">
     <AppTopbar
       title="User List"
-      breadcrumb="mailflare / users"
-      bind:searchQuery
-      searchPlaceholder="Search user by name, email, role..."
+      variant="minimal"
+      showSearch={false}
+      showRefresh={false}
+      showLogout={false}
       showMenuButton={false}
     />
     <div class="content">

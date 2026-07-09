@@ -8,9 +8,11 @@
   import Button from '$lib/components/atoms/Button.svelte';
   import Icon from '$lib/components/atoms/Icon.svelte';
   import EmailBodyViewer from '$lib/components/molecules/EmailBodyViewer.svelte';
+  import { page } from '$app/stores';
   import type { PageData } from './$types';
 
   export let data: PageData;
+  $: adminEmail = $page.data.sessionEmail ?? null;
 
   type EmailQuickAction = 'star' | 'archive' | 'delete';
 
@@ -174,12 +176,14 @@
   </section>
 {:else}
   <div class="layout-shell">
-    <AppSidebar active="users" />
+    <AppSidebar active="users" adminEmail={adminEmail} />
     <section class="main">
       <AppTopbar
-        title={`Email - ${data.currentUser?.displayName ?? data.currentUser?.email ?? email.userId}`}
-        breadcrumb="mailflare / users / emails / read"
+        title="Email"
+        variant="minimal"
         showMenuButton={false}
+        showRefresh={false}
+        showLogout={false}
       >
         <svelte:fragment slot="actions">
           <Button variant="secondary" href={inboxHref}>

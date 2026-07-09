@@ -16,6 +16,9 @@
   export let showLogout = true;
   export let showMenuButton = true;
   export let showThemeToggle = true;
+  export let variant: 'full' | 'minimal' = 'full';
+
+  $: isMinimal = variant === 'minimal';
 
   let refreshing = false;
   let loggingOut = false;
@@ -24,7 +27,6 @@
     if (refreshing || loggingOut) {
       return;
     }
-
     refreshing = true;
     try {
       await invalidateAll();
@@ -52,49 +54,65 @@
   }
 </script>
 
-<header class="topbar">
+<header class="topbar" class:minimal={isMinimal}>
   <div class="left">
     {#if showMenuButton}
       <button class="mobile-menu" type="button" aria-label="Open navigation menu" on:click={() => sidebarCollapsed.set(false)}>
         <Icon name="menu" size={18} />
       </button>
     {/if}
-    <div class="crumb">{breadcrumb}</div>
+    {#if !isMinimal && breadcrumb}
+      <div class="crumb">{breadcrumb}</div>
+    {/if}
     <h1>{title}</h1>
   </div>
   <div class="right">
-    {#if showSearch}
-      <div class="search">
-        <SearchField
-          bind:value={searchQuery}
-          placeholder={searchPlaceholder}
-          {searchLabel}
-          {onSearch}
-        />
-      </div>
+    {#if !isMinimal}
+      {#if showSearch}
+        <div class="search">
+          <SearchField
+            bind:value={searchQuery}
+            placeholder={searchPlaceholder}
+            {searchLabel}
+            {onSearch}
+          />
+        </div>
+      {/if}
+      <slot name="actions" />
+      {#if showRefresh}
+        <Button variant="secondary" disabled={refreshing || loggingOut} on:click={handleRefresh}>
+          <Icon name="refresh" size={18} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </Button>
+      {/if}
+      {#if showThemeToggle}
+        <button
+          class="icon-action"
+          type="button"
+          aria-label={$darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          on:click={handleThemeToggle}
+        >
+          <Icon name={$darkMode ? 'light_mode' : 'dark_mode'} size={18} />
+        </button>
+      {/if}
+      {#if showLogout}
+        <Button variant="ghost" disabled={loggingOut} on:click={handleLogout}>
+          <Icon name="logout" size={18} />
+          {loggingOut ? 'Logging out...' : 'Logout'}
+        </Button>
+      {/if}
     {/if}
-    <slot name="actions" />
-    {#if showRefresh}
-      <Button variant="secondary" disabled={refreshing || loggingOut} on:click={handleRefresh}>
-        <Icon name="refresh" size={18} />
-        {refreshing ? 'Refreshing...' : 'Refresh'}
-      </Button>
-    {/if}
-    {#if showThemeToggle}
-      <button
-        class="icon-action"
-        type="button"
-        aria-label={$darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-        on:click={handleThemeToggle}
-      >
-        <Icon name={$darkMode ? 'light_mode' : 'dark_mode'} size={18} />
-      </button>
-    {/if}
-    {#if showLogout}
-      <Button variant="ghost" disabled={loggingOut} on:click={handleLogout}>
-        <Icon name="logout" size={18} />
-        {loggingOut ? 'Logging out...' : 'Logout'}
-      </Button>
+    {#if isMinimal}
+      {#if showThemeToggle}
+        <button
+          class="icon-action"
+          type="button"
+          aria-label={$darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          on:click={handleThemeToggle}
+        >
+          <Icon name={$darkMode ? 'light_mode' : 'dark_mode'} size={18} />
+        </button>
+      {/if}
     {/if}
   </div>
 </header>
@@ -114,11 +132,21 @@
     backdrop-filter: blur(10px);
   }
 
+  .topbar.minimal {
+    padding: 0.65rem 1.4rem;
+  }
+
   .left h1 {
     font-size: 1rem;
     margin-top: 0.2rem;
     line-height: 1.25;
     overflow-wrap: anywhere;
+  }
+
+  .minimal .left h1 {
+    margin-top: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
   }
 
   .crumb {
@@ -178,6 +206,10 @@
       align-items: flex-start;
       gap: var(--space-3);
       padding: 0.75rem 0.9rem;
+    }
+
+    .topbar.minimal {
+      padding: 0.6rem 0.9rem;
     }
 
     .left {

@@ -2,15 +2,20 @@
   import AppSidebar from '$lib/components/organisms/AppSidebar.svelte';
   import AppTopbar from '$lib/components/organisms/AppTopbar.svelte';
   import WorkerSettingsForm from '$lib/components/organisms/WorkerSettingsForm.svelte';
+  import { page } from '$app/stores';
   import type { PageData } from './$types';
 
   export let data: PageData;
+  $: adminEmail = $page.data.sessionEmail ?? null;
 </script>
 
 <div class="layout-shell">
-  <AppSidebar active="worker" />
+  <AppSidebar active="worker" adminEmail={adminEmail} />
   <section class="main">
-    <AppTopbar title="Worker Settings" breadcrumb="mailflare / worker / settings" showSearch={false} showMenuButton={false} />
+    <AppTopbar title="Worker Settings"
+      variant="minimal"
+      showRefresh={false}
+      showLogout={false} breadcrumb="mailflare / worker / settings" showSearch={false} showMenuButton={false} />
     <div class="content">
       <WorkerSettingsForm data={data.workerSettings} />
     </div>

@@ -5,9 +5,11 @@
   import MailboxTopbar from '$lib/components/organisms/MailboxTopbar.svelte';
   import InboxTable from '$lib/components/organisms/InboxTable.svelte';
   import Icon from '$lib/components/atoms/Icon.svelte';
+  import { page } from '$app/stores';
   import type { PageData } from './$types';
 
   export let data: PageData;
+  $: adminEmail = $page.data.sessionEmail ?? null;
 
   let searchQuery = '';
 
@@ -135,14 +137,13 @@
   </section>
 {:else}
   <div class="layout-shell">
-    <AppSidebar active="users" />
+    <AppSidebar active="users" adminEmail={adminEmail} />
     <section class="main">
       <AppTopbar
-        title={`Inbox - ${data.currentUser?.displayName ?? data.userId}`}
-        breadcrumb="mailflare / users / inbox"
-        bind:searchQuery
-        searchPlaceholder="Cari di subject, pengirim, atau body email..."
-        onSearch={handleSubmit}
+        title="Inbox"
+        variant="minimal"
+        showRefresh={false}
+        showLogout={false}
         showMenuButton={false}
       />
       <div class="content">

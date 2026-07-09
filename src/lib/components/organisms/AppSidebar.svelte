@@ -1,18 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { sidebarCollapsed } from '$lib/stores/ui.store';
+  import { goto } from '$app/navigation';
+  import { sidebarCollapsed, darkMode } from '$lib/stores/ui.store';
   import BrandLockup from '$lib/components/molecules/BrandLockup.svelte';
   import SidebarNavItem from '$lib/components/molecules/SidebarNavItem.svelte';
   import Button from '$lib/components/atoms/Button.svelte';
   import Icon from '$lib/components/atoms/Icon.svelte';
 
   export let active: 'dashboard' | 'users' | 'worker' = 'dashboard';
+  export let adminEmail: string | null = null;
 
   $: compact = $sidebarCollapsed;
+  $: adminInitial = adminEmail ? adminEmail.charAt(0).toUpperCase() : '';
+  $: adminName = adminEmail ? adminEmail.split('@')[0] : '';
 
   let sidebarElement: HTMLElement | null = null;
   let isMobileViewport = false;
   let releaseOutsideHandler: (() => void) | null = null;
+  let loggingOut = false;
 
   function bindOutsideCollapse() {
     releaseOutsideHandler?.();
@@ -50,6 +55,17 @@
     };
   }
 
+  async function handleLogout() {
+    if (loggingOut) return;
+    loggingOut = true;
+    try {
+      await fetch('/api/auth/logout');
+    } finally {
+      await goto('/auth/login');
+      loggingOut = false;
+    }
+  }
+
   onMount(() => {
     const media = window.matchMedia('(max-width: 960px)');
     isMobileViewport = media.matches;
@@ -64,7 +80,6 @@
     };
 
     media.addEventListener('change', handleViewportChange);
-
     return () => {
       media.removeEventListener('change', handleViewportChange);
       releaseOutsideHandler?.();
@@ -89,13 +104,57 @@
     <SidebarNavItem href="/worker/settings" icon="settings_input_component" label="Worker Settings" active={active === 'worker'} compact={compact} />
   </nav>
 
-  <div class="toggle">
-    <Button variant="ghost" on:click={() => sidebarCollapsed.update((value) => !value)}>
-      <Icon name={compact ? 'menu' : 'menu_open'} size={18} />
-      {#if !compact}
-        Collapse
-      {/if}
-    </Button>
+  <div class="sidebar-bottom">
+    {#if adminEmail}
+      <div class="admin-info" title={adminEmail}>
+        <span class="admin-avatar">{adminInitial}</span>
+        {#if !compact}
+          <span class="admin-name">{adminName}</span>
+        {/if}
+      </div>
+    {/if}
+
+    <div class="bottom-actions">
+      <button
+        class="sidebar-action"
+        type="button"
+        aria-label={compact ? 'Switch theme' : ($darkMode ? 'Light mode' : 'Dark mode')}
+        on:click={() => darkMode.update(v => !v)}
+        title={compact ? 'Switch theme' : ''}
+      >
+        <Icon name={$darkMode ? 'light_mode' : 'dark_mode'} size={18} />
+        {#if !compact}
+          <span>{$darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+        {/if}
+      </button>
+
+      <button
+        class="sidebar-action"
+        type="button"
+        aria-label="Collapse sidebar"
+        on:click={() => sidebarCollapsed.update((value) => !value)}
+        title={compact ? 'Expand sidebar' : ''}
+      >
+        <Icon name={compact ? 'menu' : 'menu_open'} size={18} />
+        {#if !compact}
+          <span>Ciutkan</span>
+        {/if}
+      </button>
+
+      <button
+        class="sidebar-action logout"
+        type="button"
+        aria-label="Logout"
+        disabled={loggingOut}
+        on:click={handleLogout}
+        title={compact ? 'Logout' : ''}
+      >
+        <Icon name="logout" size={18} />
+        {#if !compact}
+          <span>{loggingOut ? 'Logging out...' : 'Logout'}</span>
+        {/if}
+      </button>
+    </div>
   </div>
 </aside>
 
@@ -145,12 +204,92 @@
     gap: 0.35rem;
   }
 
-  .toggle {
+  .sidebar-bottom {
+    margin-top: auto;
     border-top: 1px solid color-mix(in srgb, var(--color-outline), transparent 70%);
-    padding-top: var(--space-4);
+    padding-top: var(--space-3);
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+  }
+
+  .admin-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0.45rem 0.5rem;
+    border-radius: var(--radius-md);
+    min-height: 2.25rem;
+  }
+
+  .collapsed .admin-info {
+    justify-content: center;
+    padding: 0.45rem 0;
+  }
+
+  .admin-avatar {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    background: var(--gradient-signature);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 0.7rem;
+    font-family: var(--font-family-headline);
+    flex-shrink: 0;
+  }
+
+  .admin-name {
+    font-size: var(--font-size-body-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bottom-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .sidebar-action {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0.5rem 0.6rem;
+    border-radius: var(--radius-md);
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-body-sm);
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 120ms ease, background-color 120ms ease;
+    width: 100%;
+    text-align: left;
+    min-height: 2.25rem;
+  }
+
+  .collapsed .sidebar-action {
+    justify-content: center;
+    padding: 0.5rem 0;
+  }
+
+  .sidebar-action:hover {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-surface-low), transparent 20%);
+  }
+
+  .sidebar-action.logout {
+    color: var(--color-danger);
+  }
+
+  .sidebar-action.logout:hover {
+    background: color-mix(in srgb, var(--color-danger), var(--color-surface-card) 92%);
   }
 
   @media (max-width: 960px) {

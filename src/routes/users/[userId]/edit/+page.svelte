@@ -6,9 +6,11 @@
   import InputText from '$lib/components/atoms/InputText.svelte';
   import Checkbox from '$lib/components/atoms/Checkbox.svelte';
   import Button from '$lib/components/atoms/Button.svelte';
+  import { page } from '$app/stores';
   import type { PageData } from './$types';
 
   export let data: PageData;
+  $: adminEmail = $page.data.sessionEmail ?? null;
 
   let email = data.user.email;
   let displayName = data.user.displayName;
@@ -112,9 +114,12 @@
 </script>
 
 <div class="layout-shell">
-  <AppSidebar active="users" />
+  <AppSidebar active="users" adminEmail={adminEmail} />
   <section class="main">
-    <AppTopbar title="Edit User" breadcrumb="mailflare / users / edit" showSearch={false} showMenuButton={false} />
+    <AppTopbar title="Edit User"
+      variant="minimal"
+      showRefresh={false}
+      showLogout={false} breadcrumb="mailflare / users / edit" showSearch={false} showMenuButton={false} />
     <div class="content">
       <CardSurface>
         <div class="panel">

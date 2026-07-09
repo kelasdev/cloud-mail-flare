@@ -7,6 +7,7 @@
   import Icon from '$lib/components/atoms/Icon.svelte';
   import Button from '$lib/components/atoms/Button.svelte';
   import type { PageData } from './$types';
+  import { page } from '$app/stores';
   import type {
     DashboardActivityEntryDto,
     DashboardMetricDto,
@@ -26,6 +27,7 @@
   $: system = dashboard.system;
   $: recentActivity = dashboard.recentActivity;
   $: generatedAtLabel = formatTimestamp(dashboard.generatedAt);
+  $: adminEmail = $page.data.sessionEmail ?? null;
   $: greeting = buildGreeting();
 
   const workerTone: Record<DashboardWorkerStatus, 'success' | 'warning' | 'danger'> = {
@@ -150,13 +152,15 @@
 </script>
 
 <div class="layout-shell">
-  <AppSidebar active="dashboard" />
+  <AppSidebar active="dashboard" adminEmail={adminEmail} />
   <section class="main">
     <AppTopbar
-      title="System Overview"
-      breadcrumb="mailflare / dashboard"
+      title="Dashboard"
+      variant="minimal"
       showSearch={false}
       showMenuButton={false}
+      showRefresh={false}
+      showLogout={false}
     />
     <div class="content">
       <CardSurface className="hero">
@@ -446,12 +450,19 @@
 <style>
   .main {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
   }
 
   .content {
+    flex: 1;
+    overflow-y: auto;
     padding: var(--space-5);
     display: grid;
     gap: var(--space-5);
+    align-content: start;
   }
 
   :global(.hero) {
@@ -545,7 +556,7 @@
 
   .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--space-4);
   }
 
@@ -639,7 +650,7 @@
 
   .pipeline-summary {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: var(--space-3);
     padding-bottom: var(--space-4);
     border-bottom: 1px solid color-mix(in srgb, var(--color-outline), transparent 70%);
@@ -845,6 +856,17 @@
     border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--color-surface-low), transparent 40%);
     border: 1px solid color-mix(in srgb, var(--color-outline), transparent 80%);
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+
+  .user-row:hover {
+    background: color-mix(in srgb, var(--color-primary-500), var(--color-surface-card) 95%);
+    border-color: color-mix(in srgb, var(--color-primary-500), var(--color-surface-card) 80%);
+  }
+
+  :global([data-theme='dark']) .user-row:hover {
+    background: color-mix(in srgb, var(--color-primary-700), var(--color-surface-card) 90%);
+    border-color: color-mix(in srgb, var(--color-primary-700), var(--color-surface-card) 70%);
   }
 
   .avatar {
@@ -912,15 +934,15 @@
 
   .health-grid {
     display: grid;
-    gap: var(--space-2);
+    gap: 0;
   }
 
   .health-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.55rem 0.4rem;
-    border-bottom: 1px dashed color-mix(in srgb, var(--color-outline), transparent 70%);
+    padding: 0.6rem 0.4rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-outline), transparent 78%);
   }
 
   .health-row:last-child {
@@ -944,6 +966,8 @@
     gap: 0.5rem;
     color: var(--color-text-muted);
     font-size: var(--font-size-label-sm);
+    padding-top: var(--space-3);
+    border-top: 1px solid color-mix(in srgb, var(--color-outline), transparent 78%);
   }
 
   .health-footer :global(.icon) {
@@ -964,11 +988,17 @@
     gap: var(--space-3);
     align-items: flex-start;
     padding: 0.55rem 0.4rem;
-    border-bottom: 1px dashed color-mix(in srgb, var(--color-outline), transparent 75%);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-outline), transparent 78%);
+    transition: background-color 120ms ease;
   }
 
   .activity-row:last-child {
     border-bottom: 0;
+  }
+
+  .activity-row:hover {
+    background: color-mix(in srgb, var(--color-surface-low), transparent 30%);
+    border-radius: var(--radius-md);
   }
 
   .activity-icon {
@@ -1051,8 +1081,8 @@
   }
 
   @media (max-width: 1100px) {
-    .two-col {
-      grid-template-columns: 1fr;
+    .kpi-grid {
+      grid-template-columns: repeat(2, 1fr);
     }
   }
 
@@ -1060,6 +1090,10 @@
     .content {
       padding: var(--space-4) var(--space-3);
       gap: var(--space-4);
+    }
+
+    .two-col {
+      grid-template-columns: 1fr;
     }
 
     .hero-grid {
@@ -1071,8 +1105,8 @@
       width: 100%;
     }
 
-    .kpi-value {
-      font-size: 1.5rem;
+    .pipeline-summary {
+      grid-template-columns: repeat(2, 1fr);
     }
 
     .user-row {
@@ -1089,21 +1123,34 @@
 
   @media (max-width: 640px) {
     .kpi-grid {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: 1fr;
       gap: var(--space-3);
     }
+
+    .kpi-value {
+      font-size: 1.5rem;
+    }
+
+    .pipeline-summary {
+      grid-template-columns: 1fr 1fr;
+    }
+
     .insights-grid {
       grid-template-columns: 1fr;
     }
+
     .user-row {
       grid-template-columns: 2rem minmax(0, 1fr);
     }
+
     .user-badges {
       grid-column: 2 / 3;
     }
+
     .user-stats {
       grid-column: 2 / 3;
     }
+
     .activity-row {
       grid-template-columns: 1.85rem minmax(0, 1fr);
     }
