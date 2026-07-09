@@ -103,16 +103,7 @@
       {/if}
     {/if}
     {#if isMinimal}
-      {#if showThemeToggle}
-        <button
-          class="icon-action"
-          type="button"
-          aria-label={$darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-          on:click={handleThemeToggle}
-        >
-          <Icon name={$darkMode ? 'light_mode' : 'dark_mode'} size={18} />
-        </button>
-      {/if}
+      <!-- theme toggle moved to sidebar bottom -->
     {/if}
   </div>
 </header>
