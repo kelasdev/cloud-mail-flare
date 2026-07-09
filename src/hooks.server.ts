@@ -84,7 +84,12 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   // CSRF: validate Origin/Referer on state-changing API requests
-  if (pathname.startsWith('/api/') && event.request.method !== 'GET' && event.request.method !== 'HEAD') {
+  // Exempt external webhook endpoints (Telegram sends POST without Origin/Referer)
+  const isCsrfExempt =
+    pathname === '/api/telegram/webhook' ||
+    pathname === '/api/telegram/notify-email' ||
+    pathname.startsWith('/api/public/v1/');
+  if (!isCsrfExempt && pathname.startsWith('/api/') && event.request.method !== 'GET' && event.request.method !== 'HEAD') {
     const origin = event.request.headers.get('origin');
     const referer = event.request.headers.get('referer');
     const host = event.url.hostname;
