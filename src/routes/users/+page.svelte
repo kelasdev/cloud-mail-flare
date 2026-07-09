@@ -4,6 +4,7 @@
   import AppTopbar from '$lib/components/organisms/AppTopbar.svelte';
   import UserListPanel from '$lib/components/organisms/UserListPanel.svelte';
   import { page } from '$app/stores';
+  import { sidebarCollapsed } from '$lib/stores/ui.store';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -31,7 +32,7 @@
 
 <div class="layout-shell">
   <AppSidebar active="users" adminEmail={adminEmail} />
-  <section class="main">
+  <section class="main" class:sidebar-collapsed={$sidebarCollapsed}>
     <AppTopbar
       title="User List"
       variant="minimal"

@@ -9,6 +9,7 @@
   import Icon from '$lib/components/atoms/Icon.svelte';
   import EmailBodyViewer from '$lib/components/molecules/EmailBodyViewer.svelte';
   import { page } from '$app/stores';
+  import { sidebarCollapsed } from '$lib/stores/ui.store';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -177,7 +178,7 @@
 {:else}
   <div class="layout-shell">
     <AppSidebar active="users" adminEmail={adminEmail} />
-    <section class="main">
+    <section class="main" class:sidebar-collapsed={$sidebarCollapsed}>
       <AppTopbar
         title="Email"
         variant="minimal"

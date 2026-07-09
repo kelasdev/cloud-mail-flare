@@ -8,6 +8,7 @@
   import Button from '$lib/components/atoms/Button.svelte';
   import type { PageData } from './$types';
   import { page } from '$app/stores';
+  import { sidebarCollapsed } from '$lib/stores/ui.store';
   import type {
     DashboardActivityEntryDto,
     DashboardMetricDto,
@@ -153,7 +154,7 @@
 
 <div class="layout-shell">
   <AppSidebar active="dashboard" adminEmail={adminEmail} />
-  <section class="main">
+  <section class="main" class:sidebar-collapsed={$sidebarCollapsed}>
     <AppTopbar
       title="Dashboard"
       variant="minimal"

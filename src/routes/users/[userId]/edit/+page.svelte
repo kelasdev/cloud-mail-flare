@@ -7,6 +7,7 @@
   import Checkbox from '$lib/components/atoms/Checkbox.svelte';
   import Button from '$lib/components/atoms/Button.svelte';
   import { page } from '$app/stores';
+  import { sidebarCollapsed } from '$lib/stores/ui.store';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -115,7 +116,7 @@
 
 <div class="layout-shell">
   <AppSidebar active="users" adminEmail={adminEmail} />
-  <section class="main">
+  <section class="main" class:sidebar-collapsed={$sidebarCollapsed}>
     <AppTopbar title="Edit User"
       variant="minimal"
       showRefresh={false}

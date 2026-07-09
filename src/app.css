@@ -112,6 +112,12 @@ select {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  padding-left: var(--size-sidebar-expanded);
+  transition: padding-left 180ms ease;
+}
+
+.layout-shell .main.sidebar-collapsed {
+  padding-left: var(--size-sidebar-collapsed);
 }
 
 .layout-shell .main :global(.content) {
@@ -121,6 +127,10 @@ select {
 
 @media (max-width: 960px) {
   .layout-shell .main {
+    padding-left: 0;
+  }
+
+  .layout-shell .main.sidebar-collapsed {
     padding-left: 0;
   }
 }
