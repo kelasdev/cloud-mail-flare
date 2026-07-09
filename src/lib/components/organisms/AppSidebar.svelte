@@ -4,7 +4,6 @@
   import { sidebarCollapsed, darkMode } from '$lib/stores/ui.store';
   import BrandLockup from '$lib/components/molecules/BrandLockup.svelte';
   import SidebarNavItem from '$lib/components/molecules/SidebarNavItem.svelte';
-  import Button from '$lib/components/atoms/Button.svelte';
   import Icon from '$lib/components/atoms/Icon.svelte';
 
   export let active: 'dashboard' | 'users' | 'worker' = 'dashboard';
@@ -163,69 +162,69 @@
     position: fixed;
     inset: 0;
     border: 0;
-    background: color-mix(in srgb, var(--color-text), transparent 88%);
-    backdrop-filter: blur(1px);
+    background: rgba(0, 0, 0, 0.3);
     z-index: 8;
     display: none;
   }
 
   .sidebar {
     position: fixed;
-    inset: 0 auto 0 0;
-    height: 100vh;
-    padding: var(--space-4);
-    background: color-mix(in srgb, var(--color-surface-card), transparent 26%);
-    border-right: 1px solid color-mix(in srgb, var(--color-outline), transparent 68%);
+    top: var(--space-4);
+    left: var(--space-4);
+    bottom: var(--space-4);
+    width: var(--size-sidebar-expanded);
+    background: var(--color-surface-card);
+    border-radius: var(--radius-lg);
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
-    width: var(--size-sidebar-expanded);
-    backdrop-filter: blur(14px) saturate(125%);
-    box-shadow: 0 18px 46px rgba(0, 43, 140, 0.16);
+    gap: var(--space-2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
     z-index: 9;
     overflow-y: auto;
-    transition: width 180ms ease, transform 180ms ease, background-color 180ms ease;
+    overflow-x: hidden;
+    transition: width 180ms ease, transform 180ms ease;
+  }
+
+  :global([data-theme='dark']) .sidebar {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   }
 
   .collapsed {
     width: var(--size-sidebar-collapsed);
-    box-shadow: none;
-    background: color-mix(in srgb, var(--color-surface-card), transparent 36%);
   }
 
   .brand-wrap {
-    padding: 0.25rem;
+    padding: var(--space-3) var(--space-3) var(--space-1);
   }
 
   .nav {
     flex: 1;
     display: grid;
     align-content: start;
-    gap: 0.35rem;
-    padding-right: var(--space-1);
+    gap: 0.2rem;
+    padding: 0 var(--space-2);
   }
 
   .sidebar-bottom {
     margin-top: auto;
-    border-top: 1px solid color-mix(in srgb, var(--color-outline), transparent 70%);
-    padding-top: var(--space-3);
+    padding: var(--space-2);
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: var(--space-1);
   }
 
   .admin-info {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: 0.45rem 0.5rem;
+    padding: 0.5rem 0.6rem;
     border-radius: var(--radius-md);
     min-height: 2.25rem;
   }
 
   .collapsed .admin-info {
     justify-content: center;
-    padding: 0.45rem 0;
+    padding: 0.5rem 0;
   }
 
   .admin-avatar {
@@ -254,7 +253,7 @@
   .bottom-actions {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.1rem;
   }
 
   .sidebar-action {
@@ -299,15 +298,18 @@
     }
 
     .sidebar {
-      width: min(84vw, var(--size-sidebar-expanded));
-      min-width: 15.5rem;
-      padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
-      transform: translateX(calc(-100% - 0.5rem));
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: min(80vw, var(--size-sidebar-expanded));
+      min-width: 15rem;
+      border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+      transform: translateX(calc(-100% - 1rem));
     }
 
     .collapsed {
-      width: min(84vw, var(--size-sidebar-expanded));
-      transform: translateX(calc(-100% - 0.5rem));
+      width: min(80vw, var(--size-sidebar-expanded));
+      transform: translateX(calc(-100% - 1rem));
     }
 
     .sidebar:not(.collapsed) {
