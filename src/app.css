@@ -38,7 +38,6 @@
   --gradient-signature: linear-gradient(135deg, #003dc7 0%, #0051ff 100%);
   --size-sidebar-expanded: 16rem;
   --size-sidebar-collapsed: 5rem;
-  --layout-sidebar-offset: calc(var(--size-sidebar-collapsed) + var(--space-3));
   --mobile-nav-height: 5rem;
 }
 
@@ -98,20 +97,16 @@ select {
   vertical-align: middle;
 }
 
+/* ── Layout Shell ─────────────────────────────────────────────── */
 .layout-shell {
-  height: 100vh;
-  overflow: hidden;
-  display: flex;
+  min-height: 100vh;
   position: relative;
 }
 
 .layout-shell .main {
-  flex: 1;
+  min-height: 100vh;
+  width: 100%;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
   padding-left: var(--size-sidebar-expanded);
   transition: padding-left 180ms ease;
 }
@@ -120,21 +115,14 @@ select {
   padding-left: var(--size-sidebar-collapsed);
 }
 
-.layout-shell .main :global(.content) {
-  flex: 1;
-  overflow-y: auto;
-}
-
 @media (max-width: 960px) {
-  .layout-shell .main {
-    padding-left: 0;
-  }
-
+  .layout-shell .main,
   .layout-shell .main.sidebar-collapsed {
     padding-left: 0;
   }
 }
 
+/* ── Surface Card ─────────────────────────────────────────────── */
 .surface-card {
   background: var(--color-surface-card);
   border: 1px solid color-mix(in srgb, var(--color-outline), transparent 72%);

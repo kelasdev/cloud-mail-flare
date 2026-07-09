@@ -451,19 +451,12 @@
 <style>
   .main {
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
   }
 
   .content {
-    flex: 1;
-    overflow-y: auto;
     padding: var(--space-6) var(--space-6) var(--space-6) var(--space-5);
     display: grid;
     gap: var(--space-5);
-    align-content: start;
   }
 
   :global(.hero) {
