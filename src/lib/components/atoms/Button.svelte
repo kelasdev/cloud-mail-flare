@@ -50,7 +50,7 @@
   .btn-primary {
     color: #ffffff;
     background: var(--gradient-signature);
-    box-shadow: 0 10px 24px rgba(0, 81, 255, 0.25);
+    box-shadow: 0 4px 12px rgba(0, 81, 255, 0.2);
   }
 
   .btn-secondary {

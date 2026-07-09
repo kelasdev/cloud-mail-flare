@@ -202,6 +202,7 @@
     display: grid;
     align-content: start;
     gap: 0.35rem;
+    padding-right: var(--space-1);
   }
 
   .sidebar-bottom {

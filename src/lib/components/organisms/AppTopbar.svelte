@@ -133,7 +133,8 @@
   }
 
   .topbar.minimal {
-    padding: 0.65rem 1.4rem;
+    padding: 0.5rem 1.4rem;
+    min-height: 2.75rem;
   }
 
   .left h1 {

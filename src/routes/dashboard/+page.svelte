@@ -460,7 +460,7 @@
   .content {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-5);
+    padding: var(--space-6) var(--space-6) var(--space-6) var(--space-5);
     display: grid;
     gap: var(--space-5);
     align-content: start;
@@ -518,6 +518,7 @@
     margin: 0;
     color: var(--color-text-muted);
     max-width: 48ch;
+    line-height: 1.5;
   }
 
   .hero-sub strong {
@@ -567,15 +568,19 @@
     gap: 0.25rem;
     position: relative;
     overflow: hidden;
+    padding: var(--space-4) var(--space-4) var(--space-4) calc(var(--space-4) + 4px);
   }
 
   :global(.kpi-card)::before {
     content: '';
     position: absolute;
-    inset: 0 auto 0 0;
+    top: 0;
+    left: 0;
+    bottom: 0;
     width: 4px;
     background: var(--color-primary-500);
     opacity: 0.85;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
   }
 
   :global(.kpi-card.tone-success)::before { background: var(--color-success); }
@@ -709,8 +714,9 @@
   .pipeline-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-4);
+    gap: var(--space-3) var(--space-5);
     margin-top: var(--space-3);
+    justify-content: center;
   }
 
   .legend-item {
@@ -1089,7 +1095,7 @@
 
   @media (max-width: 960px) {
     .content {
-      padding: var(--space-4) var(--space-3);
+      padding: var(--space-4) var(--space-4) var(--space-4) var(--space-3);
       gap: var(--space-4);
     }
 

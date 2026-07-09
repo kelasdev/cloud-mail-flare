@@ -45,12 +45,12 @@
 :root[data-theme='dark'] {
   --color-primary-500: #427cff;
   --color-primary-700: #6896ff;
-  --color-surface: #121316;
-  --color-surface-low: #1a1c21;
-  --color-surface-card: #202227;
-  --color-text: #e1e2e8;
-  --color-text-muted: #9fa1ad;
-  --color-outline: #424451;
+  --color-surface: #0e0f12;
+  --color-surface-low: #16181d;
+  --color-surface-card: #1c1e24;
+  --color-text: #ededef;
+  --color-text-muted: #b0b3be;
+  --color-outline: #3a3d4a;
   --color-danger: #ffb4ab;
   --color-warning: #ffb4a0;
   --color-success: #7cd590;
