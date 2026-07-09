@@ -113,15 +113,15 @@ export const handle: Handle = async ({ event, resolve }) => {
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
 
-  // CSP — permissive for email HTML rendering, strict for everything else
+  // CSP — tailored for SvelteKit + Cloudflare Turnstile + Google Fonts
   const csp = [
     "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https:",
-    "font-src 'self'",
-    "connect-src 'self'",
-    "frame-src 'none'",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
+    "frame-src https://challenges.cloudflare.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'"
