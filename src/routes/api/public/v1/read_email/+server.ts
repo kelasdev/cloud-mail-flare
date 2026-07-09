@@ -8,6 +8,7 @@ type PublicErrorCode =
   | 'BAD_REQUEST'
   | 'NOT_FOUND'
   | 'CONFLICT'
+  | 'FORBIDDEN'
   | 'RATE_LIMITED'
   | 'INTERNAL_ERROR'
   | 'SERVICE_UNAVAILABLE';
@@ -27,6 +28,11 @@ export const GET: RequestHandler = async ({ platform, request }) => {
   const emailId = (url.searchParams.get('email_id') ?? '').trim();
   if (!emailId) {
     return publicError(400, 'BAD_REQUEST', 'email_id is required');
+  }
+
+  const keyUserId = auth.key.userId;
+  if (!keyUserId) {
+    return publicError(403, 'FORBIDDEN', 'API key is not linked to a user');
   }
 
   try {
@@ -53,10 +59,11 @@ export const GET: RequestHandler = async ({ platform, request }) => {
         JOIN users u ON u.id = e.user_id
         WHERE e.id = ?
           AND e.deleted_at IS NULL
+          AND e.user_id = ?
         LIMIT 1
       `
       )
-      .bind(emailId)
+      .bind(emailId, keyUserId)
       .first<Record<string, unknown>>();
 
     if (!row) {

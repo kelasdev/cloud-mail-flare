@@ -48,9 +48,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (pathname.startsWith('/api/')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
-        headers: {
-          'content-type': 'application/json'
-        }
+        headers: { 'content-type': 'application/json' }
       });
     }
 
@@ -72,19 +70,34 @@ export const handle: Handle = async ({ event, resolve }) => {
         pathname === '/api/health' ||
         pathname === '/api/me' ||
         pathname === '/api/me/inbox' ||
-        pathname.startsWith('/api/me/emails/') ||
-        pathname.startsWith('/api/public/v1/');
+        pathname.startsWith('/api/me/emails/');
 
       if (!isAllowedApi) {
         return new Response(JSON.stringify({ error: 'Forbidden: inbox-only account' }), {
           status: 403,
-          headers: {
-            'content-type': 'application/json'
-          }
+          headers: { 'content-type': 'application/json' }
         });
       }
     } else if (!isPublicPath(pathname) && !isAllowedPage) {
       throw redirect(303, ownInboxPath);
+    }
+  }
+
+  // CSRF: validate Origin/Referer on state-changing API requests
+  if (pathname.startsWith('/api/') && event.request.method !== 'GET' && event.request.method !== 'HEAD') {
+    const origin = event.request.headers.get('origin');
+    const referer = event.request.headers.get('referer');
+    const host = event.url.hostname;
+    const allowed = origin
+      ? new URL(origin).hostname === host
+      : referer
+        ? new URL(referer).hostname === host
+        : false;
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: 'CSRF validation failed' }), {
+        status: 403,
+        headers: { 'content-type': 'application/json' }
+      });
     }
   }
 

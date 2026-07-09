@@ -28,9 +28,14 @@ export const POST: RequestHandler = async ({ request, cookies, platform, url }) 
 
   const body = (await request.json().catch(() => null)) as AccessCodeBody | null;
   const turnstileToken = body?.turnstileToken ?? '';
-  const turnstileSecret = platform?.env?.TURNSTILE_SECRET_KEY || '1x0000000000000000000000000000000AA';
 
-  if (turnstileSecret && turnstileToken) {
+  const turnstileSecret = platform?.env?.TURNSTILE_SECRET_KEY;
+
+  if (!turnstileSecret) {
+    return json({ error: 'CAPTCHA not configured' }, { status: 503 });
+  }
+
+  if (turnstileToken) {
     const formData = new FormData();
     formData.append('secret', turnstileSecret);
     formData.append('response', turnstileToken);
@@ -45,7 +50,7 @@ export const POST: RequestHandler = async ({ request, cookies, platform, url }) 
         body: formData,
         method: 'POST'
       });
-      const tsOutcome = await tsResult.json() as any;
+      const tsOutcome = await tsResult.json() as { success?: boolean };
       if (!tsOutcome.success) {
         return json({ error: 'Verifikasi keamanan Turnstile gagal. Silakan muat ulang halaman.' }, { status: 403 });
       }
@@ -107,13 +112,26 @@ export const POST: RequestHandler = async ({ request, cookies, platform, url }) 
     )
     .first<{ id: string; email: string }>();
 
-  if (!owner?.id) {
-    return json({ error: 'No admin user found to attach session' }, { status: 409 });
+  // Bind session to the user linked on the access code, fall back to first user
+  const codeUser = await db
+    .prepare(
+      `SELECT u.id, u.email FROM access_codes ac
+       JOIN users u ON u.id = ac.user_id WHERE ac.id = ? LIMIT 1`
+    )
+    .bind(codeRow.id)
+    .first<{ id: string; email: string }>();
+
+  const targetUser = codeUser ?? await db
+    .prepare(`SELECT id, email FROM users ORDER BY created_at ASC, id ASC LIMIT 1`)
+    .first<{ id: string; email: string }>();
+
+  if (!targetUser?.id) {
+    return json({ error: 'No user found to attach session' }, { status: 409 });
   }
 
   const userAgent = extractUserAgent(request);
   const clientIp = extractClientIp(request);
-  const loginToken = await createLoginSession(db, owner.id, userAgent, clientIp);
+  const loginToken = await createLoginSession(db, targetUser.id, userAgent, clientIp);
 
   const accessSessionTokenHash = await sha256Hex(randomToken());
   await db
@@ -137,8 +155,8 @@ export const POST: RequestHandler = async ({ request, cookies, platform, url }) 
   return json({
     ok: true,
     user: {
-      id: owner.id,
-      email: owner.email
+      id: targetUser.id,
+      email: targetUser.email
     }
   });
 };

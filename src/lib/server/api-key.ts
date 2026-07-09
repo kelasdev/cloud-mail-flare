@@ -12,6 +12,7 @@ export interface ApiKeyRecord {
   name: string;
   createdBy: string;
   createdAt: string;
+  userId?: string;
 }
 
 export interface ApiKeyStatus {
@@ -169,7 +170,7 @@ export async function authenticatePublicApiRequest(
   const row = await db
     .prepare(
       `
-      SELECT id, name, created_by, created_at
+      SELECT id, name, created_by, created_at, user_id
       FROM api_keys
       WHERE key_hash = ?
         AND revoked_at IS NULL
@@ -218,10 +219,11 @@ function buildApiError(code: ApiKeyAuthFailureCode, message: string): ApiKeyAuth
 
 async function insertIssuedApiKey(
   db: D1Database,
-  input: { createdBy: string; name?: string }
+  input: { createdBy: string; name?: string; userId?: string }
 ): Promise<IssuedApiKey> {
   const normalizedName = (input.name?.trim() || API_KEY_NAME_DEFAULT).slice(0, 120);
   const createdBy = (input.createdBy?.trim() || 'system').slice(0, 190);
+  const userId = input.userId?.trim() || null;
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const apiKey = `${API_KEY_PREFIX}${randomToken()}`;
@@ -232,10 +234,10 @@ async function insertIssuedApiKey(
       await db
         .prepare(
           `
-          INSERT INTO api_keys (id, key_hash, name, created_by, created_at, revoked_at)
-          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, NULL)
-        `
-        )
+          INSERT INTO api_keys (id, key_hash, name, created_by, user_id, created_at, revoked_at)
+          VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, NULL)
+        `)
+        .bind(id, keyHash, normalizedName, createdBy, userId)
         .bind(id, keyHash, normalizedName, createdBy)
         .run();
 
@@ -280,7 +282,8 @@ function toApiKeyRecord(row: Record<string, unknown> | null): ApiKeyRecord | nul
     id: String(row.id ?? ''),
     name: String(row.name ?? ''),
     createdBy: String(row.created_by ?? ''),
-    createdAt: String(row.created_at ?? '')
+    createdAt: String(row.created_at ?? ''),
+    userId: row.user_id ? String(row.user_id) : undefined
   };
 }
 

@@ -53,8 +53,11 @@ export const POST: RequestHandler = async ({ request, cookies, platform, url }) 
     }
 
     // Verifikasi Cloudflare Turnstile
-    const turnstileSecret = platform?.env?.TURNSTILE_SECRET_KEY || '1x0000000000000000000000000000000AA'; // Menggunakan dummy secret testing
-    if (turnstileSecret && turnstileToken) {
+    const turnstileSecret = platform?.env?.TURNSTILE_SECRET_KEY;
+    if (!turnstileSecret) {
+      return json({ error: 'CAPTCHA not configured' }, { status: 503 });
+    }
+    if (turnstileToken) {
       const formData = new FormData();
       formData.append('secret', turnstileSecret);
       formData.append('response', turnstileToken);
@@ -69,7 +72,7 @@ export const POST: RequestHandler = async ({ request, cookies, platform, url }) 
           body: formData,
           method: 'POST'
         });
-        const tsOutcome = await tsResult.json() as any;
+        const tsOutcome = await tsResult.json() as { success?: boolean };
         if (!tsOutcome.success) {
           return json({ error: 'Verifikasi keamanan Turnstile gagal. Silakan muat ulang halaman.' }, { status: 403 });
         }

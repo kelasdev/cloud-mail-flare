@@ -4,14 +4,17 @@ import { createUserInDb, getUsersFromDb } from '$lib/server/db';
 import { generateSecurePassword, hashPassword } from '$lib/server/security';
 import { sendUserCreatedTelegramNotification } from '$lib/server/telegram';
 
-export const GET: RequestHandler = async ({ platform }) => {
+export const GET: RequestHandler = async ({ platform, locals }) => {
+  if (!locals.authenticated || locals.sessionRole !== 'owner') {
+    return json({ error: 'Forbidden' }, { status: 403 });
+  }
   const users = await getUsersFromDb(platform?.env?.DB);
   return json({ users });
 };
 
 export const POST: RequestHandler = async ({ platform, request, locals }) => {
-  if (!locals.authenticated) {
-    return json({ error: 'Unauthorized' }, { status: 401 });
+  if (!locals.authenticated || locals.sessionRole !== 'owner') {
+    return json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const contentType = request.headers.get('content-type') ?? '';
@@ -44,43 +47,43 @@ export const POST: RequestHandler = async ({ platform, request, locals }) => {
       return json({ error: 'Database is not configured' }, { status: 503 });
     }
 
-    const configuredDomain = await resolveUserDomain(db, platform?.env?.MAILFLARE_USER_DOMAIN, locals.sessionEmail);
-    const email = `${usernameRaw}@${configuredDomain}`;
-    const generatedPassword = generateSecurePassword(18);
-    const passwordHash = await hashPassword(generatedPassword);
-    const user = await createUserInDb(db, { email, displayName: usernameRaw, passwordHash });
-    const createdBy = locals.sessionEmail ?? 'dashboard-admin';
-    const telegramSentTo = await sendUserCreatedTelegramNotification(db, platform?.env, {
+    const domain = await resolveUserDomain(db, platform?.env?.MAILFLARE_USER_DOMAIN, locals.sessionEmail);
+    const email = `${usernameRaw}@${domain}`;
+    const password = generateSecurePassword();
+    const passwordHash = await hashPassword(password);
+    const displayName = usernameRaw;
+
+    const created = await createUserInDb(db, {
+      email,
+      displayName,
+      passwordHash
+    });
+
+    await sendUserCreatedTelegramNotification(db, platform?.env, {
       username: usernameRaw,
       email,
-      password: generatedPassword,
-      createdBy
+      password,
+      createdBy: locals.sessionEmail ?? 'admin'
     }).catch(() => 0);
 
-    return json(
-      {
-        ok: true,
-        user,
-        credentials: {
-          username: usernameRaw,
-          email,
-          password: generatedPassword
-        },
-        telegram: {
-          sentTo: telegramSentTo
-        }
-      },
-      { status: 201 }
-    );
+    return json({
+      ok: true,
+      user: {
+        id: created.id,
+        email: created.email,
+        displayName: created.displayName,
+        password
+      }
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (message.toLowerCase().includes('unique') || message.toLowerCase().includes('users.email')) {
-      return json({ error: 'Username already exists for configured domain' }, { status: 409 });
+    if (message.includes('UNIQUE constraint failed')) {
+      return json({ error: 'Username already exists' }, { status: 409 });
     }
     if (message.includes('DB binding is required')) {
       return json({ error: 'Database is not configured' }, { status: 503 });
     }
-
+    console.error('Create user error:', message);
     return json({ error: 'Failed to create user' }, { status: 500 });
   }
 };
@@ -90,14 +93,7 @@ function sanitizeDomain(raw: string): string {
 }
 
 function isValidDomain(domain: string): boolean {
-  if (!domain || domain.length > 253) {
-    return false;
-  }
-  const labels = domain.split('.');
-  if (labels.length < 2) {
-    return false;
-  }
-  return labels.every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label));
+  return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/.test(domain);
 }
 
 async function resolveUserDomain(
@@ -105,23 +101,14 @@ async function resolveUserDomain(
   envDomain: string | undefined,
   sessionEmail: string | undefined
 ): Promise<string> {
-  const dbRow = await db
-    .prepare('SELECT value FROM worker_settings WHERE key = ? LIMIT 1')
-    .bind('user_email_domain')
-    .first<{ value: string | null }>();
-  const fromDb = sanitizeDomain(String(dbRow?.value ?? ''));
-  if (isValidDomain(fromDb)) {
-    return fromDb;
+  const envValue = sanitizeDomain(envDomain ?? '');
+  if (envValue && isValidDomain(envValue)) {
+    return envValue;
   }
 
-  const fromEnv = sanitizeDomain(envDomain ?? '');
-  if (isValidDomain(fromEnv)) {
-    return fromEnv;
-  }
-
-  const fromSession = sanitizeDomain((sessionEmail?.split('@')[1] ?? '').trim());
-  if (isValidDomain(fromSession)) {
-    return fromSession;
+  const fallback = sessionEmail?.split('@')[1];
+  if (fallback && isValidDomain(fallback)) {
+    return fallback;
   }
 
   return 'mailflare.local';

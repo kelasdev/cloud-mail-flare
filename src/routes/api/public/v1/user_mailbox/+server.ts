@@ -7,6 +7,7 @@ type PublicErrorCode =
   | 'BAD_REQUEST'
   | 'NOT_FOUND'
   | 'CONFLICT'
+  | 'FORBIDDEN'
   | 'RATE_LIMITED'
   | 'INTERNAL_ERROR'
   | 'SERVICE_UNAVAILABLE';
@@ -20,6 +21,11 @@ export const GET: RequestHandler = async ({ platform, request }) => {
   const db = platform?.env?.DB;
   if (!db) {
     return publicError(503, 'SERVICE_UNAVAILABLE', 'Database is not configured');
+  }
+
+  // Only owner-linked API keys can list other users' mailboxes
+  if (!auth.key.userId) {
+    return publicError(403, 'FORBIDDEN', 'API key is not linked to a user');
   }
 
   const url = new URL(request.url);

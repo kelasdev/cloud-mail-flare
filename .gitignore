@@ -9,6 +9,8 @@ node_modules/
 dist/
 build/
 .output/
+.serena/
+.omp/
 
 # Cloudflare local state / secrets
 .wrangler/

@@ -4,13 +4,16 @@ import { updateWorkerSettingsInDb } from '$lib/server/db';
 import { getWorkerSettings } from '$lib/server/services/worker-settings.service';
 
 export const GET: RequestHandler = async (event) => {
+  if (!event.locals.authenticated || event.locals.sessionRole !== 'owner') {
+    return json({ error: 'Forbidden' }, { status: 403 });
+  }
   const payload = await getWorkerSettings(event);
   return json(payload);
 };
 
 export const PATCH: RequestHandler = async ({ platform, request, locals }) => {
-  if (!locals.authenticated) {
-    return json({ error: 'Unauthorized' }, { status: 401 });
+  if (!locals.authenticated || locals.sessionRole !== 'owner') {
+    return json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const contentType = request.headers.get('content-type') ?? '';

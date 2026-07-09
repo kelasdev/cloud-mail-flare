@@ -42,8 +42,7 @@ export const POST: RequestHandler = async ({ platform, locals, url }) => {
           : null
       }
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return json({ ok: false, error: `Failed to connect Telegram webhook: ${message}` }, { status: 500 });
+  } catch (_error) {
+    return json({ ok: false, error: 'Failed to connect Telegram webhook' }, { status: 500 });
   }
 };

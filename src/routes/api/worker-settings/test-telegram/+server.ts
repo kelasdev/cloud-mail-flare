@@ -40,8 +40,7 @@ export const POST: RequestHandler = async ({ platform, locals }) => {
           : null
       }
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return json({ ok: false, error: `Failed to test Telegram connection: ${message}` }, { status: 500 });
+  } catch (_error) {
+    return json({ ok: false, error: 'Failed to test Telegram connection' }, { status: 500 });
   }
 };

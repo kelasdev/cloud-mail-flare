@@ -114,8 +114,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
     }
 
     return json({ ok: true, sentTo, stored });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return json({ error: `Failed to send inbound notification: ${message}` }, { status: 500 });
+  } catch (_error) {
+    return json({ error: 'Failed to send inbound notification' }, { status: 500 });
   }
 };
