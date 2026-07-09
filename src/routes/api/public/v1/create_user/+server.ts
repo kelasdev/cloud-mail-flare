@@ -58,9 +58,9 @@ export const POST: RequestHandler = async ({ platform, request }) => {
           user,
           credentials: {
             username: usernameRaw,
-            email,
-            password: generatedPassword
-          }
+            email
+          },
+          notice: 'Password has been generated and sent via Telegram notification. It will not be shown again.'
         }
       },
       { status: 201 }

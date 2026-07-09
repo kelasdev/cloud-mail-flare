@@ -68,6 +68,11 @@ export const GET: RequestHandler = async ({ platform, request }) => {
       return publicError(404, 'NOT_FOUND', 'User not found');
     }
 
+    // Ownership check: API key user can only access their own mailbox
+    if (user.id !== auth.key.userId) {
+      return publicError(403, 'FORBIDDEN', 'Cannot access another user\'s mailbox');
+    }
+
     const archiveCondition = includeArchived ? '' : 'AND is_archived = 0';
     const [countRow, listRows] = await Promise.all([
       db

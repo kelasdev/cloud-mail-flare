@@ -9,6 +9,7 @@ import {
   SESSION_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS
 } from '$lib/server/session';
+import { checkRateLimit, rateLimitKey } from '$lib/server/rate-limit';
 
 interface AccessCodeBody {
   code?: string;
@@ -19,6 +20,12 @@ export const POST: RequestHandler = async ({ request, cookies, platform, url }) 
   const db = platform?.env?.DB;
   if (!db) {
     return json({ error: 'Database is not configured' }, { status: 503 });
+  }
+
+  // Rate limit: 5 access code attempts per minute per IP
+  const rl = checkRateLimit(rateLimitKey(request, 'access-code'), 5, 60_000);
+  if (!rl.allowed) {
+    return json({ error: `Too many attempts. Retry in ${rl.retryAfterSeconds}s` }, { status: 429 });
   }
 
   const contentType = request.headers.get('content-type') ?? '';

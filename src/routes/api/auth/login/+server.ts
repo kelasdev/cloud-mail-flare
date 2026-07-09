@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { createUserInDb, getUserAuthByEmail } from '$lib/server/db';
 import { createLoginSession, extractClientIp, extractUserAgent, SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from '$lib/server/session';
 import { hashPassword, verifyPassword } from '$lib/server/security';
+import { checkRateLimit, rateLimitKey } from '$lib/server/rate-limit';
 
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -23,6 +24,12 @@ export const POST: RequestHandler = async ({ request, cookies, platform, url }) 
   const db = platform?.env?.DB;
   if (!db) {
     return json({ error: 'Database is not configured' }, { status: 503 });
+  }
+
+  // Rate limit: 10 login attempts per minute per IP
+  const rl = checkRateLimit(rateLimitKey(request, 'login'), 10, 60_000);
+  if (!rl.allowed) {
+    return json({ error: `Too many login attempts. Retry in ${rl.retryAfterSeconds}s` }, { status: 429 });
   }
 
   const contentType = request.headers.get('content-type') ?? '';

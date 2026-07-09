@@ -238,7 +238,6 @@ async function insertIssuedApiKey(
           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, NULL)
         `)
         .bind(id, keyHash, normalizedName, createdBy, userId)
-        .bind(id, keyHash, normalizedName, createdBy)
         .run();
 
       const row = await db

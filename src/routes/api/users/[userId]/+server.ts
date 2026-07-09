@@ -3,7 +3,11 @@ import type { RequestHandler } from './$types';
 import { getUserByIdFromDb, softDeleteUserInDb, updateUserInDb } from '$lib/server/db';
 import { generateSecurePassword, hashPassword } from '$lib/server/security';
 
-export const GET: RequestHandler = async ({ platform, params }) => {
+export const GET: RequestHandler = async ({ platform, params, locals }) => {
+  if (!locals.authenticated || locals.sessionRole !== 'owner') {
+    return json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const user = await getUserByIdFromDb(platform?.env?.DB, params.userId);
   if (!user) {
     return json({ error: 'User not found' }, { status: 404 });
