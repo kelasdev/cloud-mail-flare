@@ -17,6 +17,11 @@ AGENTS.md
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
+d1-sync/
+script/
+*.sh
+*.ps1
+export-d1-local.md
 
 # Environment files
 .env
