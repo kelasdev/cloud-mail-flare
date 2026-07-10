@@ -11,7 +11,7 @@ build/
 .output/
 .serena/
 .omp/
-
+AGENTS.md
 # Cloudflare local state / secrets
 .wrangler/
 .dev.vars
