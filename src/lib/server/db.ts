@@ -736,7 +736,7 @@ export async function upsertInboundEmailInDb(
       recipient,
       subject,
       snippet,
-      dateHeader || receivedAt,
+      toIsoSafe(dateHeader) ?? receivedAt,
       rawSize,
       bodyText,
       rawMime,
@@ -798,6 +798,14 @@ export async function upsertInboundEmailInDb(
     .run();
 
   return { stored: true };
+}
+
+function toIsoSafe(value: string): string | null {
+  if (!value) {
+    return null;
+  }
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? null : new Date(time).toISOString();
 }
 
 function parseHeaderParam(contentType: string, paramName: string): string {

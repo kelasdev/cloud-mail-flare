@@ -18,12 +18,19 @@
   type InboxTab = 'primary' | 'starred' | 'archived';
   let activeTab: InboxTab = 'primary';
 
-  $: visibleEmails =
+$: visibleEmails = (
     activeTab === 'starred'
       ? emails.filter((email) => email.isStarred && !email.isArchived)
       : activeTab === 'archived'
         ? emails.filter((email) => email.isArchived)
-        : emails.filter((email) => !email.isArchived);
+        : emails.filter((email) => !email.isArchived)
+  )
+  .slice()
+  .sort((a, b) => {
+    const ta = new Date(a.receivedAt).getTime();
+    const tb = new Date(b.receivedAt).getTime();
+    return (Number.isNaN(tb) ? 0 : tb) - (Number.isNaN(ta) ? 0 : ta);
+  });
 
   function initials(sender: string): string {
     const plain = sender.replace(/["<>]/g, ' ').trim();

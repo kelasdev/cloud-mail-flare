@@ -186,14 +186,14 @@
         showRefresh={false}
         showLogout={false}
       >
-        <svelte:fragment slot="actions">
+      </AppTopbar>
+      <div class="content">
+        <div class="detail-toolbar">
           <Button variant="secondary" href={inboxHref}>
             <Icon name="arrow_back" size={18} />
             Back to Inbox
           </Button>
-        </svelte:fragment>
-      </AppTopbar>
-      <div class="content">
+        </div>
         <CardSurface>
           <div class="head">
             <div>
@@ -415,4 +415,7 @@
     }
   }
 
+    .detail-toolbar {
+      margin-bottom: var(--space-4);
+    }
 </style>
