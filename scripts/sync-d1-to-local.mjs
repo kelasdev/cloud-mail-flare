@@ -178,4 +178,4 @@ console.log('[4/4] Done!');
 console.log('');
 console.log('Local D1 synced with production.');
 console.log('');
-console.log('Next: pnpm cf:dev → http://localhost:8787');
+console.log('Next: npm run cf:dev → http://localhost:8787');

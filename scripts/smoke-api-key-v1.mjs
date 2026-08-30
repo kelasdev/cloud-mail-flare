@@ -71,13 +71,13 @@ Options:
   --api-key <value>    Override smoke API key (default: cmf_v1_smoke_key_ABC123XYZ_987654321)
   --port <number>      Wrangler dev port (default: 8797)
   --db-name <name>     D1 local database name (default: read from wrangler.toml)
-  --skip-build         Skip "pnpm build" before smoke test
+  --skip-build         Skip "npm run build" before smoke test
   --help               Show help
 `.trim());
 }
 
-function getPnpmBin() {
-  return process.platform === 'win32' ? 'pnpm' : 'pnpm';
+function getNpxBin() {
+  return 'npx';
 }
 
 function sha256Hex(value) {
@@ -312,7 +312,7 @@ async function main() {
 
   const databaseName = args.databaseName || (await readDefaultDatabaseName(cwd));
   const baseUrl = `http://127.0.0.1:${args.port}`;
-  const pnpmBin = getPnpmBin();
+  const pnpmBin = getNpxBin();
 
   console.log(`[smoke] Using database: ${databaseName}`);
   console.log(`[smoke] Using base URL: ${baseUrl}`);
@@ -320,8 +320,8 @@ async function main() {
   if (!args.skipBuild) {
     console.log('[smoke] Running build...');
     try {
-      await runCommand(pnpmBin, ['exec', 'svelte-kit', 'sync'], { cwd, streamOutput: true });
-      await runCommand(pnpmBin, ['exec', 'vite', 'build'], { cwd, streamOutput: true });
+      await runCommand(pnpmBin, ['svelte-kit', 'sync'], { cwd, streamOutput: true });
+      await runCommand(pnpmBin, ['vite', 'build'], { cwd, streamOutput: true });
       await runCommand('node', ['./scripts/postbuild-add-email-handler.mjs'], { cwd, streamOutput: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -337,11 +337,11 @@ async function main() {
     }
   } else {
     console.log('[smoke] Skip build enabled; refreshing route manifest with svelte-kit sync...');
-    await runCommand(pnpmBin, ['exec', 'svelte-kit', 'sync'], { cwd });
+    await runCommand(pnpmBin, ['svelte-kit', 'sync'], { cwd });
   }
 
   console.log('[smoke] Applying schema...');
-  await runCommand(pnpmBin, ['exec', 'wrangler', 'd1', 'execute', databaseName, '--local', '--file', './schema.sql'], { cwd });
+  await runCommand(pnpmBin, ['wrangler', 'd1', 'execute', databaseName, '--local', '--file', './schema.sql'], { cwd });
 
   const tempDir = await mkdtemp(join(tmpdir(), 'cmf-smoke-'));
   const seedPath = join(tempDir, 'seed.sql');
@@ -350,13 +350,13 @@ async function main() {
   console.log('[smoke] Seeding data...');
   await runCommand(
     pnpmBin,
-    ['exec', 'wrangler', 'd1', 'execute', databaseName, '--local', '--file', seedPath],
+    ['wrangler', 'd1', 'execute', databaseName, '--local', '--file', seedPath],
     { cwd }
   );
 
   const { child, log, display } = startCommand(
     pnpmBin,
-    ['exec', 'wrangler', 'dev', '--local', '--port', String(args.port)],
+    ['wrangler', 'dev', '--local', '--port', String(args.port)],
     { cwd }
   );
 

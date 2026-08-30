@@ -96,8 +96,8 @@ function parseArgs(argv) {
   return out;
 }
 
-function getPnpmBin() {
-  return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+function getNpxBin() {
+  return 'npx';
 }
 
 function runCommand(command, args, options = {}) {
@@ -208,7 +208,7 @@ async function runD1Command({ dbName, sql, remote, local, persistTo, cwd }) {
   const normalizedSql = String(sql ?? '').trim();
   if (process.platform === 'win32') {
     const parts = [
-      'pnpm exec wrangler d1 execute',
+      'npx wrangler d1 execute',
       quotePs(dbName),
       '--json',
       '--command',
@@ -223,18 +223,18 @@ async function runD1Command({ dbName, sql, remote, local, persistTo, cwd }) {
     return parseWranglerJson(stdout);
   }
 
-  const pnpm = getPnpmBin();
-  const args = ['exec', 'wrangler', 'd1', 'execute', dbName, '--json', '--command', normalizedSql];
+  const npx = getNpxBin();
+  const args = ['wrangler', 'd1', 'execute', dbName, '--json', '--command', normalizedSql];
   if (remote) args.push('--remote');
   if (local) args.push('--local');
   if (persistTo) args.push('--persist-to', persistTo);
-  const { stdout } = await runCommand(pnpm, args, { cwd });
+  const { stdout } = await runCommand(npx, args, { cwd });
   return parseWranglerJson(stdout);
 }
 
 async function runD1File({ dbName, filePath, remote, local, persistTo, cwd, streamOutput = false }) {
   if (process.platform === 'win32') {
-    const parts = ['pnpm exec wrangler d1 execute', quotePs(dbName), '--file', quotePs(filePath)];
+    const parts = ['npx wrangler d1 execute', quotePs(dbName), '--file', quotePs(filePath)];
     if (remote) parts.push('--remote');
     if (local) parts.push('--local');
     if (persistTo) parts.push('--persist-to', quotePs(persistTo));
@@ -242,12 +242,12 @@ async function runD1File({ dbName, filePath, remote, local, persistTo, cwd, stre
     return runCommand('powershell', ['-NoProfile', '-Command', psCmd], { cwd, streamOutput });
   }
 
-  const pnpm = getPnpmBin();
-  const args = ['exec', 'wrangler', 'd1', 'execute', dbName, '--file', filePath];
+  const npx = getNpxBin();
+  const args = ['wrangler', 'd1', 'execute', dbName, '--file', filePath];
   if (remote) args.push('--remote');
   if (local) args.push('--local');
   if (persistTo) args.push('--persist-to', persistTo);
-  return runCommand(pnpm, args, { cwd, streamOutput });
+  return runCommand(npx, args, { cwd, streamOutput });
 }
 
 async function collectExistingEmails({ dbName, emails, remote, local, persistTo, cwd }) {

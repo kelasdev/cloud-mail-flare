@@ -376,13 +376,13 @@ Aturan:
 1. Apply schema terbaru:
 
 ```bash
-pnpm exec wrangler d1 execute mailflare-db --local --file ./schema.sql
+npx wrangler d1 execute mailflare-db --local --file ./schema.sql
 ```
 
 2. Jalankan aplikasi lokal:
 
 ```bash
-pnpm cf:dev
+npm run cf:dev
 ```
 
 3. Login sebagai admin di UI.
@@ -390,13 +390,13 @@ pnpm cf:dev
 ### 11.2 UAT Otomatis (Direkomendasikan)
 
 ```bash
-pnpm smoke:api-key:v1
+npm run smoke:api-key:v1
 ```
 
 Opsi cepat tanpa rebuild:
 
 ```bash
-pnpm smoke:api-key:v1 --skip-build
+npm run smoke:api-key:v1 --skip-build
 ```
 
 ### 11.3 UAT Manual Issuance API Key

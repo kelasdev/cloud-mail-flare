@@ -18,8 +18,8 @@
     "build": "svelte-kit sync && vite build && node ./scripts/postbuild-add-email-handler.mjs",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "cf:dev": "pnpm build && pnpm exec wrangler dev",
-    "deploy": "pnpm build && pnpm exec wrangler deploy"
+    "cf:dev": "npm run build && npx wrangler dev",
+    "deploy": "npm run build && npx wrangler deploy"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260402.0",

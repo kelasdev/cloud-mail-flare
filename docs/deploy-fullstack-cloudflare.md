@@ -30,7 +30,7 @@ Catatan:
 ## 2) Prasyarat
 
 - Node.js 20+
-- `pnpm` terpasang
+- `npm` terpasang (bawaan Node.js)
 - Akun Cloudflare dengan akses Workers, D1, Email Routing
 - Domain sudah ada di Cloudflare zone
 
@@ -60,9 +60,9 @@ Catatan Telegram:
 ## 4) Install Dependency dan Login Wrangler
 
 ```bash
-pnpm install
-pnpm exec wrangler login
-pnpm exec wrangler whoami
+npm install
+npx wrangler login
+npx wrangler whoami
 ```
 
 Jika `whoami` gagal, ulangi `wrangler login`.
@@ -111,13 +111,13 @@ Validasi cepat:
 Jika DB belum ada:
 
 ```bash
-pnpm exec wrangler d1 create <d1-db-name>
+npx wrangler d1 create <d1-db-name>
 ```
 
 Setelah dapat `database_id`, isi ke `wrangler.toml`, lalu apply schema remote:
 
 ```bash
-pnpm exec wrangler d1 execute <d1-db-name> --remote --file ./schema.sql
+npx wrangler d1 execute <d1-db-name> --remote --file ./schema.sql
 ```
 
 ## 7) Set Secret Production
@@ -125,18 +125,18 @@ pnpm exec wrangler d1 execute <d1-db-name> --remote --file ./schema.sql
 Set secret wajib:
 
 ```bash
-pnpm exec wrangler secret put SETUP_TOKEN
-pnpm exec wrangler secret put TURNSTILE_SITE_KEY
-pnpm exec wrangler secret put TURNSTILE_SECRET_KEY
+npx wrangler secret put SETUP_TOKEN
+npx wrangler secret put TURNSTILE_SITE_KEY
+npx wrangler secret put TURNSTILE_SECRET_KEY
 ```
 
 Jika pakai Telegram:
 
 ```bash
-pnpm exec wrangler secret put TELEGRAM_BOT_TOKEN
-pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET
-pnpm exec wrangler secret put TELEGRAM_INTERNAL_SECRET
-pnpm exec wrangler secret put TELEGRAM_ALLOWED_IDS
+npx wrangler secret put TELEGRAM_BOT_TOKEN
+npx wrangler secret put TELEGRAM_WEBHOOK_SECRET
+npx wrangler secret put TELEGRAM_INTERNAL_SECRET
+npx wrangler secret put TELEGRAM_ALLOWED_IDS
 ```
 
 Catatan penting:
@@ -156,8 +156,8 @@ Prioritas konfigurasi Telegram saat runtime:
 Opsional fallback env Telegram (jika ingin dipasang di Worker env):
 
 ```bash
-pnpm exec wrangler secret put TELEGRAM_DEFAULT_CHAT_ID
-pnpm exec wrangler secret put TELEGRAM_TEST_CHAT_ID
+npx wrangler secret put TELEGRAM_DEFAULT_CHAT_ID
+npx wrangler secret put TELEGRAM_TEST_CHAT_ID
 ```
 
 Generate secret random (opsional):
@@ -169,8 +169,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ## 8) Pre-Deploy Validation
 
 ```bash
-pnpm check
-pnpm build
+npm run check
+npm run build
 ```
 
 Jika gagal, perbaiki dulu sebelum deploy.
@@ -178,7 +178,7 @@ Jika gagal, perbaiki dulu sebelum deploy.
 ## 9) Deploy ke Cloudflare
 
 ```bash
-pnpm run deploy
+npm run deploy
 ```
 
 Expected result:
@@ -189,7 +189,7 @@ Expected result:
 
 Catatan proses deploy:
 
-- `pnpm run deploy` menjalankan build SvelteKit
+- `npm run deploy` menjalankan build SvelteKit
 - Script `postbuild-add-email-handler.mjs` inject handler `email()`
 - Wrangler deploy ke Cloudflare
 
@@ -243,7 +243,7 @@ Opsi A (disarankan):
 Opsi B (CLI):
 
 ```bash
-pnpm telegram:webhook:set -- \
+npm run telegram:webhook:set -- \
   --token "<BOT_TOKEN>" \
   --url "https://<app-domain>/api/telegram/webhook" \
   --secret "<WEBHOOK_SECRET>" \
@@ -253,13 +253,13 @@ pnpm telegram:webhook:set -- \
 Verifikasi webhook:
 
 ```bash
-pnpm telegram:webhook:info -- --token "<BOT_TOKEN>"
+npm run telegram:webhook:info -- --token "<BOT_TOKEN>"
 ```
 
 Opsional: set command menu bot
 
 ```bash
-pnpm telegram:commands -- --token "<BOT_TOKEN>"
+npm run telegram:commands -- --token "<BOT_TOKEN>"
 ```
 
 Checklist cepat setelah webhook:
@@ -303,7 +303,7 @@ Bagian ini dipakai jika aplikasi sudah jalan lalu Anda ingin pindah domain.
 3. Deploy ulang:
 
 ```bash
-pnpm run deploy
+npm run deploy
 ```
 
 4. Jika pakai Telegram webhook, update webhook URL ke:
@@ -325,7 +325,7 @@ pnpm run deploy
 5. Deploy ulang:
 
 ```bash
-pnpm run deploy
+npm run deploy
 ```
 
 Catatan penting:
@@ -344,7 +344,7 @@ WHERE lower(substr(email, instr(email, '@') + 1)) = 'old-domain.com';
 Setelah migrasi:
 - uji kirim email ke alamat baru
 - pastikan inbox user menerima email
-- pantau log dengan `pnpm exec wrangler tail --format pretty`
+- pantau log dengan `npx wrangler tail --format pretty`
 
 Checklist catch-all (wajib):
 - [ ] ada rule catch-all aktif untuk domain email yang sekarang dipakai: `*@<mail-domain-aktif>`
@@ -384,14 +384,14 @@ Checklist tambahan jika Telegram aktif:
 Pantau log realtime (langkah pertama saat ada masalah):
 
 ```bash
-pnpm exec wrangler tail --format pretty
+npx wrangler tail --format pretty
 ```
 
 Kasus umum:
 
 `wrangler whoami` gagal:
 
-- login ulang `pnpm exec wrangler login`
+- login ulang `npx wrangler login`
 
 D1 tidak terbaca:
 
@@ -408,7 +408,7 @@ Email tidak masuk ke Worker:
 
 - pastikan Email Routing destination = `Send to a Worker`
 - cek worker name sesuai `wrangler.toml`
-- deploy ulang (`pnpm run deploy`) bila perlu
+- deploy ulang (`npm run deploy`) bila perlu
 
 Email inbound selalu reject:
 

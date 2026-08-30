@@ -165,25 +165,25 @@ curl "https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo"
 
 Project menyediakan script helper:
 
-- `pnpm telegram:webhook:set`
-- `pnpm telegram:webhook:delete`
-- `pnpm telegram:webhook:info`
+- `npm run telegram:webhook:set`
+- `npm run telegram:webhook:delete`
+- `npm run telegram:webhook:info`
 
 Contoh penggunaan:
 
 ```bash
 # set webhook
-pnpm telegram:webhook:set -- \
+npm run telegram:webhook:set -- \
   --token "<BOT_TOKEN>" \
   --url "<PUBLIC_URL>/api/telegram/webhook" \
   --secret "<WEBHOOK_SECRET>" \
   --allowed-updates "message,callback_query"
 
 # info webhook
-pnpm telegram:webhook:info -- --token "<BOT_TOKEN>"
+npm run telegram:webhook:info -- --token "<BOT_TOKEN>"
 
 # delete webhook
-pnpm telegram:webhook:delete -- \
+npm run telegram:webhook:delete -- \
   --token "<BOT_TOKEN>" \
   --drop-pending-updates true
 ```

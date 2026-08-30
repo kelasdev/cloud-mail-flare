@@ -37,7 +37,7 @@ Tidak perlu memahami semuanya sekarang, tapi ini adalah teknologi di balik layar
 - **[Cloudflare D1](https://developers.cloudflare.com/d1/)** — Database SQL gratis dari Cloudflare
 - **[Cloudflare Email Routing](https://developers.cloudflare.com/email-routing/)** — Penerusan email masuk ke Worker
 - **[Wrangler](https://developers.cloudflare.com/workers/wrangler/)** — CLI resmi Cloudflare untuk development & deploy
-- **[pnpm](https://pnpm.io/)** — Package manager Node.js (lebih cepat dari npm)
+- **[npm](https://www.npmjs.com/)** — Package manager Node.js (bawaan Node.js)
 
 ---
 
@@ -48,10 +48,7 @@ Pastikan hal-hal berikut sudah tersedia di komputer Anda:
 ### 1. Software yang Harus Diinstall
 
 - ✅ **Node.js versi 20 ke atas** → [Download di nodejs.org](https://nodejs.org/)
-- ✅ **pnpm** (package manager) → Install dengan perintah:
-  ```bash
-  npm install -g pnpm
-  ```
+- ✅ **npm** (sudah tersedia bersama Node.js, tidak perlu install tambahan)
 - ✅ **Git** (opsional, untuk clone repository) → [Download di git-scm.com](https://git-scm.com/)
 
 ### 2. Akun yang Diperlukan
@@ -104,15 +101,15 @@ Pastikan hal-hal berikut sudah tersedia di komputer Anda:
 
 | Perintah                         | Fungsi                                                         |
 | -------------------------------- | -------------------------------------------------------------- |
-| `pnpm dev`                     | Jalankan Vite dev server biasa (tanpa D1)                      |
-| `pnpm cf:dev`                  | Jalankan Worker dev mode**dengan D1** (direkomendasikan) |
-| `pnpm check`                   | Cek error TypeScript / Svelte                                  |
-| `pnpm build`                   | Build aplikasi untuk production                                |
-| `pnpm run deploy`              | Build + upload ke Cloudflare                                   |
-| `pnpm smoke:api-key:v1`        | Smoke test otomatis API key + public API v1 (lokal)           |
-| `pnpm telegram:webhook:set`    | Daftarkan webhook Telegram                                     |
-| `pnpm telegram:webhook:delete` | Hapus webhook Telegram                                         |
-| `pnpm telegram:webhook:info`   | Cek info webhook Telegram                                      |
+| `npm run dev`                  | Jalankan Vite dev server biasa (tanpa D1)                      |
+| `npm run cf:dev`               | Jalankan Worker dev mode**dengan D1** (direkomendasikan) |
+| `npm run check`                | Cek error TypeScript / Svelte                                  |
+| `npm run build`                | Build aplikasi untuk production                                |
+| `npm run deploy`               | Build + upload ke Cloudflare                                   |
+| `npm run smoke:api-key:v1`     | Smoke test otomatis API key + public API v1 (lokal)           |
+| `npm run telegram:webhook:set`    | Daftarkan webhook Telegram                                     |
+| `npm run telegram:webhook:delete` | Hapus webhook Telegram                                         |
+| `npm run telegram:webhook:info`   | Cek info webhook Telegram                                      |
 
 ---
 
@@ -165,9 +162,9 @@ cloud-mail-flare/
 
 > Saat ini sistem menggunakan satu domain email utama. Anda bisa mengaturnya di **Worker Settings → user_email_domain**.
 
-**Q: Apa bedanya `pnpm dev` dan `pnpm cf:dev`?**
+**Q: Apa bedanya `npm run dev` dan `npm run cf:dev`?**
 
-> `pnpm dev` menjalankan Vite biasa (cepat tapi tidak bisa akses database D1). `pnpm cf:dev` mensimulasikan lingkungan Cloudflare secara penuh termasuk D1 — gunakan ini untuk development sehari-hari.
+> `npm run dev` menjalankan Vite biasa (cepat tapi tidak bisa akses database D1). `npm run cf:dev` mensimulasikan lingkungan Cloudflare secara penuh termasuk D1 — gunakan ini untuk development sehari-hari.
 
 **Q: Bagaimana cara menonaktifkan notifikasi Telegram untuk pengguna tertentu?**
 
