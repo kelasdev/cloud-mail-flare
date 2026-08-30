@@ -35,5 +35,10 @@
   },
   "dependencies": {
     "postal-mime": "^2.7.4"
+  },
+  "overrides": {
+    "@sveltejs/kit": {
+      "cookie": "^0.7.0"
+    }
   }
 }
