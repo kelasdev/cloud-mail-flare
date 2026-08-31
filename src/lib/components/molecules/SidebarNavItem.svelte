@@ -38,5 +38,7 @@
 
   .compact {
     justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
   }
 </style>

@@ -120,7 +120,7 @@
     <AppTopbar title="Edit User"
       variant="minimal"
       showRefresh={false}
-      showLogout={false} breadcrumb="mailflare / users / edit" showSearch={false} showMenuButton={false} />
+      showLogout={false} breadcrumb="mailflare / users / edit" showSearch={false} />
     <div class="content">
       <CardSurface>
         <div class="panel">

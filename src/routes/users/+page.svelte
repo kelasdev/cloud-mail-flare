@@ -39,7 +39,6 @@
       showSearch={false}
       showRefresh={false}
       showLogout={false}
-      showMenuButton={false}
     />
     <div class="content">
       <UserListPanel users={filteredUsers} on:usercreated={handleUserCreated} on:userchanged={handleUserChanged} />

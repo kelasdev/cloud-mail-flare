@@ -14,7 +14,6 @@
   export let onSearch: (() => void) | undefined = undefined;
   export let showRefresh = true;
   export let showLogout = true;
-  export let showMenuButton = true;
   export let showThemeToggle = true;
   export let variant: 'full' | 'minimal' = 'full';
 
@@ -56,11 +55,9 @@
 
 <header class="topbar" class:minimal={isMinimal}>
   <div class="left">
-    {#if showMenuButton}
-      <button class="mobile-menu" type="button" aria-label="Open navigation menu" on:click={() => sidebarCollapsed.set(false)}>
-        <Icon name="menu" size={18} />
-      </button>
-    {/if}
+    <button class="menu-toggle" type="button" aria-label={$sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} on:click={() => sidebarCollapsed.update((value) => !value)}>
+      <Icon name={$sidebarCollapsed ? 'menu' : 'menu_open'} size={18} />
+    </button>
     {#if !isMinimal && breadcrumb}
       <div class="crumb">{breadcrumb}</div>
     {/if}
@@ -160,16 +157,25 @@
     width: min(28rem, 42vw);
   }
 
-  .mobile-menu {
-    display: none;
+  .menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: 1px solid color-mix(in srgb, var(--color-outline), transparent 55%);
     background: var(--color-surface-low);
     border-radius: var(--radius-md);
     color: var(--color-text);
     width: 2.1rem;
     height: 2.1rem;
-    align-items: center;
-    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+  }
+
+  .menu-toggle:hover {
+    color: var(--color-text);
+    border-color: color-mix(in srgb, var(--color-outline), transparent 28%);
+    background: color-mix(in srgb, var(--color-surface-low), transparent 10%);
   }
 
   .icon-action {
@@ -236,10 +242,6 @@
     .right :global(.btn),
     .icon-action {
       flex: 0 0 auto;
-    }
-
-    .mobile-menu {
-      display: inline-flex;
     }
   }
 </style>

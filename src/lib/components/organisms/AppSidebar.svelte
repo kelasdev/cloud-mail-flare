@@ -94,8 +94,10 @@
 {/if}
 
 <aside bind:this={sidebarElement} class={`sidebar ${compact ? 'collapsed' : ''}`}>
-  <div class="brand-wrap">
-    <BrandLockup compact={compact} />
+  <div class="sidebar-header">
+    <div class="brand-wrap">
+      <BrandLockup compact={compact} />
+    </div>
   </div>
 
   <nav class="nav">
@@ -104,7 +106,7 @@
     <SidebarNavItem href="/worker/settings" icon="settings_input_component" label="Worker Settings" active={active === 'worker'} compact={compact} />
   </nav>
 
-  <div class="sidebar-bottom">
+  <div class="sidebar-footer">
     {#if adminEmail}
       <div class="admin-info" title={adminEmail}>
         <span class="admin-avatar">{adminInitial}</span>
@@ -125,19 +127,6 @@
         <Icon name={$darkMode ? 'light_mode' : 'dark_mode'} size={18} />
         {#if !compact}
           <span>{$darkMode ? 'Light Mode' : 'Dark Mode'}</span>
-        {/if}
-      </button>
-
-      <button
-        class="sidebar-action"
-        type="button"
-        aria-label="Collapse sidebar"
-        on:click={() => sidebarCollapsed.update((value) => !value)}
-        title={compact ? 'Expand sidebar' : ''}
-      >
-        <Icon name={compact ? 'menu' : 'menu_open'} size={18} />
-        {#if !compact}
-          <span>Ciutkan</span>
         {/if}
       </button>
 
@@ -172,29 +161,41 @@
   .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
-    height: 100vh;
-    padding: var(--space-4);
-    background: color-mix(in srgb, var(--color-surface-card), transparent 26%);
-    border-right: 1px solid color-mix(in srgb, var(--color-outline), transparent 68%);
+    height: 100dvh;
+    width: var(--size-sidebar-expanded);
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
-    width: var(--size-sidebar-expanded);
-    backdrop-filter: blur(14px) saturate(125%);
+    background: var(--color-surface-card);
+    border-right: 1px solid color-mix(in srgb, var(--color-outline), transparent 68%);
     box-shadow: 0 18px 46px rgba(0, 43, 140, 0.16);
     z-index: 9;
-    overflow-y: auto;
-    transition: width 180ms ease, transform 180ms ease, background-color 180ms ease;
+    overflow: hidden;
+    transition: width 200ms ease, transform 200ms ease, background-color 200ms ease;
   }
 
-  .collapsed {
-    width: var(--size-sidebar-collapsed);
+  .sidebar.collapsed {
+    width: 3.5rem !important;
     box-shadow: none;
-    background: color-mix(in srgb, var(--color-surface-card), transparent 36%);
+  }
+
+  /* Header: brand di kiri, trigger collapse di kanan (pola shadcn) */
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-4) var(--space-3);
+    min-height: 3.5rem;
   }
 
   .brand-wrap {
-    padding: 0.25rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .sidebar.collapsed .sidebar-header {
+    justify-content: center;
+    padding: var(--space-4) var(--space-3) var(--space-3);
   }
 
   .nav {
@@ -202,13 +203,18 @@
     display: grid;
     align-content: start;
     gap: 0.35rem;
-    padding-right: var(--space-1);
+    padding: var(--space-2) var(--space-3) var(--space-3);
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
-  .sidebar-bottom {
-    margin-top: auto;
+  .sidebar.collapsed .nav {
+    padding: var(--space-2) 0.5rem var(--space-3);
+  }
+
+  .sidebar-footer {
     border-top: 1px solid color-mix(in srgb, var(--color-outline), transparent 70%);
-    padding-top: var(--space-3);
+    padding: var(--space-3) var(--space-3) calc(var(--space-4) + env(safe-area-inset-bottom));
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
@@ -223,7 +229,7 @@
     min-height: 2.25rem;
   }
 
-  .collapsed .admin-info {
+  .sidebar.collapsed .admin-info {
     justify-content: center;
     padding: 0.45rem 0;
   }
@@ -275,7 +281,7 @@
     min-height: 2.25rem;
   }
 
-  .collapsed .sidebar-action {
+  .sidebar.collapsed .sidebar-action {
     justify-content: center;
     padding: 0.5rem 0;
   }
@@ -301,11 +307,11 @@
     .sidebar {
       width: min(84vw, var(--size-sidebar-expanded));
       min-width: 15.5rem;
-      padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+      padding-bottom: env(safe-area-inset-bottom);
       transform: translateX(calc(-100% - 0.5rem));
     }
 
-    .collapsed {
+    .sidebar.collapsed {
       width: min(84vw, var(--size-sidebar-expanded));
       transform: translateX(calc(-100% - 0.5rem));
     }

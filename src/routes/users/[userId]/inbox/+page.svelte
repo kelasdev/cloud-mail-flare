@@ -145,7 +145,6 @@
         variant="minimal"
         showRefresh={false}
         showLogout={false}
-        showMenuButton={false}
       />
       <div class="content">
         <div class="inbox-head">

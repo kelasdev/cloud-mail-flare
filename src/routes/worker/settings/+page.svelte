@@ -16,7 +16,7 @@
     <AppTopbar title="Worker Settings"
       variant="minimal"
       showRefresh={false}
-      showLogout={false} breadcrumb="mailflare / worker / settings" showSearch={false} showMenuButton={false} />
+      showLogout={false} breadcrumb="mailflare / worker / settings" showSearch={false} />
     <div class="content">
       <WorkerSettingsForm data={data.workerSettings} />
     </div>

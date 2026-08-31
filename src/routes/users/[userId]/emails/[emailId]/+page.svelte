@@ -182,7 +182,6 @@
       <AppTopbar
         title="Email"
         variant="minimal"
-        showMenuButton={false}
         showRefresh={false}
         showLogout={false}
       >

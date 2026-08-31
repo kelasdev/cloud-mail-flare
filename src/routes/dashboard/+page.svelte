@@ -159,7 +159,6 @@
       title="Dashboard"
       variant="minimal"
       showSearch={false}
-      showMenuButton={false}
       showRefresh={false}
       showLogout={false}
     />

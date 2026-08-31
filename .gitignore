@@ -39,6 +39,10 @@ pnpm-debug.log*
 # Test / coverage
 coverage/
 
+# Test artifacts (Playwright MCP browser snapshots, console logs, DOM yml dumps)
+.playwright-mcp/
+sidebar-expanded.yml
+
 # Editor / OS files
 .DS_Store
 Thumbs.db

@@ -37,7 +37,7 @@
   --shadow-modal: 0 32px 64px rgba(0, 61, 199, 0.12);
   --gradient-signature: linear-gradient(135deg, #003dc7 0%, #0051ff 100%);
   --size-sidebar-expanded: 16rem;
-  --size-sidebar-collapsed: 5rem;
+  --size-sidebar-collapsed: 3.5rem;
   --mobile-nav-height: 5rem;
 }
 
@@ -99,16 +99,18 @@ select {
 
 /* ── Layout Shell ─────────────────────────────────────────────── */
 .layout-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
+  display: flex;
+  align-items: stretch;
 }
 
 .layout-shell .main {
-  min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   min-width: 0;
   padding-left: var(--size-sidebar-expanded);
-  transition: padding-left 180ms ease;
+  transition: padding-left 200ms ease;
 }
 
 .layout-shell .main.sidebar-collapsed {
